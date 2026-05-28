@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from kimy.core.crypto import decrypt, encrypt
 from kimy.models.advisor_profile import AdvisorProfile
-from kimy.models.orcid_publication import OrcidPublication
+from kimy.models.orcid_publication import OWNER_TYPE_ADVISOR, OrcidPublication
 from kimy.services.orcid import api_client as orcid_api
 from kimy.services.orcid.oauth import OrcidTokenResult
 from kimy.services.plagiarism.embedder import embed_texts
@@ -58,7 +58,10 @@ async def link_advisor(
 
     # Replace prior publications atomically.
     await session.execute(
-        delete(OrcidPublication).where(OrcidPublication.advisor_id == advisor_user_id)
+        delete(OrcidPublication).where(
+            OrcidPublication.owner_id == advisor_user_id,
+            OrcidPublication.owner_type == OWNER_TYPE_ADVISOR,
+        )
     )
     await session.flush()
 
@@ -68,7 +71,8 @@ async def link_advisor(
         for work, vector in zip(works, embeddings, strict=True):
             session.add(
                 OrcidPublication(
-                    advisor_id=advisor_user_id,
+                    owner_id=advisor_user_id,
+                    owner_type=OWNER_TYPE_ADVISOR,
                     put_code=work.put_code,
                     title=work.title,
                     year=work.year,
@@ -95,7 +99,10 @@ async def unlink_advisor(session: AsyncSession, advisor_user_id: UUID) -> bool:
     profile.orcid_refresh_token_enc = None
     profile.orcid_last_sync = None
     await session.execute(
-        delete(OrcidPublication).where(OrcidPublication.advisor_id == advisor_user_id)
+        delete(OrcidPublication).where(
+            OrcidPublication.owner_id == advisor_user_id,
+            OrcidPublication.owner_type == OWNER_TYPE_ADVISOR,
+        )
     )
     await session.commit()
     return True
@@ -106,7 +113,10 @@ async def get_advisor_publications(
 ) -> list[OrcidPublication]:
     stmt = (
         select(OrcidPublication)
-        .where(OrcidPublication.advisor_id == advisor_user_id)
+        .where(
+            OrcidPublication.owner_id == advisor_user_id,
+            OrcidPublication.owner_type == OWNER_TYPE_ADVISOR,
+        )
         .order_by(OrcidPublication.year.desc().nulls_last(), OrcidPublication.title)
     )
     return list((await session.execute(stmt)).scalars().all())

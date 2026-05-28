@@ -39,6 +39,7 @@ export const es = {
   "nav.student.home": "Inicio",
   "nav.student.submissions": "Mis avances",
   "nav.student.reports": "Reportes",
+  "nav.student.profile": "Mi perfil (ORCID)",
   // Sidebar nav (advisor)
   "nav.advisor.home": "Inicio",
   "nav.advisor.reviews": "Revisiones",

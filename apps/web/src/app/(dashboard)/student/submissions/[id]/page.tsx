@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { CitationsPanel } from "@/features/citations/citations-panel";
+import { EmailReportForm } from "@/features/submissions/email-report-form";
 import { EvaluationPanel } from "@/features/evaluations/evaluation-panel";
 import { SubmissionStatusBadge } from "@/features/submissions/status-badge";
 import { VersionList } from "@/features/submissions/version-list";
@@ -128,6 +129,22 @@ export default async function StudentSubmissionDetail({
           />
         </CardContent>
       </Card>
+
+      {latestVersion ? (
+        <Card>
+          <CardHeader>
+            <CardTitle>{t("submission.email.title")}</CardTitle>
+            <CardDescription>{t("submission.email.help")}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <EmailReportForm
+              submissionId={submission.id}
+              defaultTo={user.email}
+              defaultReportType="both"
+            />
+          </CardContent>
+        </Card>
+      ) : null}
     </div>
   );
 }

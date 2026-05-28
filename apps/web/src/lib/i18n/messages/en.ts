@@ -40,6 +40,7 @@ export const en: Record<MessageKeyBase, string> = {
   "nav.student.home": "Home",
   "nav.student.submissions": "My submissions",
   "nav.student.reports": "Reports",
+  "nav.student.profile": "My profile (ORCID)",
   // Sidebar nav (advisor)
   "nav.advisor.home": "Home",
   "nav.advisor.reviews": "Reviews",

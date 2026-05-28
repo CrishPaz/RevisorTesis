@@ -40,3 +40,17 @@ class OrcidPublicationOut(BaseModel):
     doi: str | None
     url: str | None
     created_at: datetime
+
+
+class OrcidStudentValidateIn(BaseModel):
+    orcid_id: str
+
+
+class OrcidStudentStatusOut(BaseModel):
+    linked: bool
+    orcid_id: str | None
+    full_name: str | None
+    affiliation: str | None
+    last_sync: datetime | None
+    publications_count: int
+    mode: str  # "real" | "stub"

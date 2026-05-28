@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -35,6 +36,20 @@ class StudentProfile(TimestampMixin, Base):
         index=True,
     )
     student_code: Mapped[str | None] = mapped_column(String(50), nullable=True)
+
+    # ORCID — validación liviana (2-legged), sin tokens.
+    orcid_id: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, unique=True, index=True
+    )
+    orcid_full_name: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    orcid_affiliation: Mapped[str | None] = mapped_column(
+        String(255), nullable=True
+    )
+    orcid_last_sync: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
     user: Mapped[User] = relationship(
         foreign_keys=[user_id],

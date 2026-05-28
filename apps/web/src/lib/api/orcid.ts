@@ -8,6 +8,7 @@ import type {
   OrcidLinkResult,
   OrcidPublication,
   OrcidStatus,
+  OrcidStudentStatus,
 } from "@/lib/api/types";
 
 export async function fetchOrcidStatus(): Promise<OrcidStatus> {
@@ -63,4 +64,44 @@ export async function finishOrcidLinkAction(
 export async function unlinkOrcidAction(): Promise<void> {
   await apiFetch("/api/v1/orcid/me", { method: "DELETE" });
   revalidatePath("/advisor/profile");
+}
+
+// ---- Estudiante (validación liviana) ----
+
+export async function fetchStudentOrcidStatus(): Promise<OrcidStudentStatus> {
+  return apiFetch<OrcidStudentStatus>("/api/v1/orcid/student/me");
+}
+
+export async function fetchStudentOrcidPublications(): Promise<OrcidPublication[]> {
+  return apiFetch<OrcidPublication[]>("/api/v1/orcid/student/me/publications");
+}
+
+export type ValidateStudentOrcidResult =
+  | { ok: true; data: OrcidStudentStatus }
+  | { ok: false; error: string };
+
+export async function validateStudentOrcidAction(
+  orcidId: string,
+): Promise<ValidateStudentOrcidResult> {
+  try {
+    const data = await apiFetch<OrcidStudentStatus>(
+      "/api/v1/orcid/student/validate",
+      {
+        method: "POST",
+        body: { orcid_id: orcidId },
+      },
+    );
+    revalidatePath("/student/profile");
+    return { ok: true, data };
+  } catch (err) {
+    return {
+      ok: false,
+      error: extractErrorMessage(err, "No se pudo validar tu ORCID iD"),
+    };
+  }
+}
+
+export async function unlinkStudentOrcidAction(): Promise<void> {
+  await apiFetch("/api/v1/orcid/student/me", { method: "DELETE" });
+  revalidatePath("/student/profile");
 }

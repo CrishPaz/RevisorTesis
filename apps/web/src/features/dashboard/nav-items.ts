@@ -12,6 +12,7 @@ export const NAV_BY_ROLE: Record<UserRole, NavItem[]> = {
     { href: "/student", label: "Inicio", labelKey: "nav.student.home" },
     { href: "/student/submissions", label: "Mis avances", labelKey: "nav.student.submissions" },
     { href: "/student/reports", label: "Reportes", labelKey: "nav.student.reports" },
+    { href: "/student/profile", label: "Mi perfil (ORCID)", labelKey: "nav.student.profile" },
   ],
   advisor: [
     { href: "/advisor", label: "Inicio", labelKey: "nav.advisor.home" },

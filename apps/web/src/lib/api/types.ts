@@ -336,3 +336,13 @@ export type OrcidPublication = {
 export type OrcidLinkResult = OrcidStatus & {
   backend: string;
 };
+
+export type OrcidStudentStatus = {
+  linked: boolean;
+  orcid_id: string | null;
+  full_name: string | null;
+  affiliation: string | null;
+  last_sync: string | null;
+  publications_count: number;
+  mode: "real" | "stub";
+};

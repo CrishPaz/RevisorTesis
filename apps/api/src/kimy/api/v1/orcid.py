@@ -20,19 +20,25 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel
 
 from kimy.core.deps import CurrentUser, SessionDep, require_roles
+from kimy.models.student_profile import StudentProfile
 from kimy.models.user import UserRole
 from kimy.schemas.orcid import (
     OrcidAuthorizeOut,
     OrcidLinkResult,
     OrcidPublicationOut,
     OrcidStatusOut,
+    OrcidStudentStatusOut,
+    OrcidStudentValidateIn,
 )
 from kimy.services.orcid import oauth as orcid_oauth
+from kimy.services.orcid import public_lookup as orcid_public
+from kimy.services.orcid import student_sync as orcid_student
 from kimy.services.orcid import sync as orcid_sync
 
 router = APIRouter(prefix="/orcid", tags=["orcid"])
 
 _ADVISOR_ONLY = [Depends(require_roles(UserRole.advisor))]
+_STUDENT_ONLY = [Depends(require_roles(UserRole.student))]
 
 
 class _CallbackPayload(BaseModel):
@@ -139,3 +145,96 @@ async def me_publications(
 )
 async def unlink(session: SessionDep, user: CurrentUser) -> None:
     await orcid_sync.unlink_advisor(session, user.id)
+
+
+# ---------------------------------------------------------------------------
+# Estudiante — validación liviana (2-legged / read-public).
+# ---------------------------------------------------------------------------
+
+
+def _student_status_payload(
+    profile: StudentProfile | None,
+    publications_count: int,
+) -> OrcidStudentStatusOut:
+    if profile is None or profile.orcid_id is None:
+        return OrcidStudentStatusOut(
+            linked=False,
+            orcid_id=None,
+            full_name=None,
+            affiliation=None,
+            last_sync=None,
+            publications_count=0,
+            mode="real" if orcid_public.is_real_mode() else "stub",
+        )
+    return OrcidStudentStatusOut(
+        linked=True,
+        orcid_id=profile.orcid_id,
+        full_name=profile.orcid_full_name,
+        affiliation=profile.orcid_affiliation,
+        last_sync=profile.orcid_last_sync,
+        publications_count=publications_count,
+        mode="real" if orcid_public.is_real_mode() else "stub",
+    )
+
+
+@router.get(
+    "/student/me",
+    response_model=OrcidStudentStatusOut,
+    dependencies=_STUDENT_ONLY,
+)
+async def student_me(
+    session: SessionDep, user: CurrentUser
+) -> OrcidStudentStatusOut:
+    profile = await session.get(StudentProfile, user.id)
+    publications = await orcid_student.get_student_publications(session, user.id)
+    return _student_status_payload(profile, len(publications))
+
+
+@router.post(
+    "/student/validate",
+    response_model=OrcidStudentStatusOut,
+    dependencies=_STUDENT_ONLY,
+)
+async def student_validate(
+    payload: OrcidStudentValidateIn,
+    session: SessionDep,
+    user: CurrentUser,
+) -> OrcidStudentStatusOut:
+    try:
+        profile, _public = await orcid_student.validate_and_link_student(
+            session,
+            student_user_id=user.id,
+            raw_orcid_id=payload.orcid_id,
+        )
+    except orcid_public.OrcidLookupError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)
+        ) from exc
+
+    publications = await orcid_student.get_student_publications(session, user.id)
+    return _student_status_payload(profile, len(publications))
+
+
+@router.get(
+    "/student/me/publications",
+    response_model=list[OrcidPublicationOut],
+    dependencies=_STUDENT_ONLY,
+)
+async def student_me_publications(
+    session: SessionDep, user: CurrentUser
+) -> list[OrcidPublicationOut]:
+    publications = await orcid_student.get_student_publications(session, user.id)
+    return [OrcidPublicationOut.model_validate(p) for p in publications]
+
+
+@router.delete(
+    "/student/me",
+    status_code=status.HTTP_204_NO_CONTENT,
+    dependencies=_STUDENT_ONLY,
+)
+async def student_unlink(session: SessionDep, user: CurrentUser) -> None:
+    await orcid_student.unlink_student(session, user.id)

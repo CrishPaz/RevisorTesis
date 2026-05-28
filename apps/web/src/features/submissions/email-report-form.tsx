@@ -6,19 +6,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { sendReportByEmailAction } from "@/lib/api/submissions";
+import type { ReportType } from "@/lib/api/types";
 import { useTranslations } from "@/lib/i18n/locale-provider";
+
+const REPORT_TYPES: ReportType[] = ["both", "acta", "plagiarism"];
 
 export function EmailReportForm({
   submissionId,
   defaultTo,
+  defaultReportType = "both",
 }: {
   submissionId: string;
   defaultTo?: string;
+  defaultReportType?: ReportType;
 }) {
   const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [to, setTo] = useState(defaultTo ?? "");
   const [message, setMessage] = useState("");
+  const [reportType, setReportType] = useState<ReportType>(defaultReportType);
   const [pending, start] = useTransition();
   const [result, setResult] = useState<
     | { kind: "ok"; to: string; filename: string }
@@ -30,7 +36,12 @@ export function EmailReportForm({
     e.preventDefault();
     setResult(null);
     start(async () => {
-      const res = await sendReportByEmailAction(submissionId, to, message);
+      const res = await sendReportByEmailAction(
+        submissionId,
+        to,
+        message,
+        reportType,
+      );
       if (res.ok) {
         setResult({ kind: "ok", to: res.to, filename: res.filename });
         setMessage("");
@@ -80,6 +91,25 @@ export function EmailReportForm({
           required
           disabled={pending}
         />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="email-report-type">
+          {t("submission.email.reportType.label")}
+        </Label>
+        <select
+          id="email-report-type"
+          value={reportType}
+          onChange={(e) => setReportType(e.target.value as ReportType)}
+          disabled={pending}
+          className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)] dark:focus-visible:ring-sky-500/40"
+        >
+          {REPORT_TYPES.map((rt) => (
+            <option key={rt} value={rt}>
+              {t(`submission.email.reportType.${rt}`)}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="space-y-2">

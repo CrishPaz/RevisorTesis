@@ -16,7 +16,7 @@ from sqlalchemy import bindparam, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from kimy.core.config import get_settings
-from kimy.models.orcid_publication import OrcidPublication
+from kimy.models.orcid_publication import OWNER_TYPE_ADVISOR, OrcidPublication
 from kimy.models.submission import Submission
 from kimy.services.plagiarism.embedder import embed_texts
 
@@ -66,7 +66,10 @@ async def compute_fit(
                 bindparam("query_vec", value=query_vec)
             )).label("similarity"),
         )
-        .where(OrcidPublication.advisor_id == advisor_id)
+        .where(
+            OrcidPublication.owner_id == advisor_id,
+            OrcidPublication.owner_type == OWNER_TYPE_ADVISOR,
+        )
         .order_by("similarity")  # ascending — pull worst first then we'll just pick best
     )
     rows = list((await session.execute(stmt)).all())
@@ -143,7 +146,10 @@ async def update_submissions_fit_bulk(
             OrcidPublication.id,
             OrcidPublication.title,
             OrcidPublication.embedding,
-        ).where(OrcidPublication.advisor_id == advisor_id)
+        ).where(
+            OrcidPublication.owner_id == advisor_id,
+            OrcidPublication.owner_type == OWNER_TYPE_ADVISOR,
+        )
     )
     pubs = list((await session.execute(pubs_stmt)).all())
 

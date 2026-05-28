@@ -215,8 +215,8 @@ export const esSubmissions = {
   "submission.table.gradeOver20": "{n} / 20",
 
   // ---- Email report form ----
-  "submission.email.openButton": "Enviar acta por correo",
-  "submission.email.title": "Enviar acta por correo",
+  "submission.email.openButton": "Enviar reportes por correo",
+  "submission.email.title": "Enviar reportes por correo",
   "submission.email.close": "Cerrar",
   "submission.email.toLabel": "Correo destinatario",
   "submission.email.toPlaceholder": "alumno@unt.edu.pe",
@@ -225,8 +225,12 @@ export const esSubmissions = {
   "submission.email.counter": "{n} / 2000",
   "submission.email.submit": "Enviar correo",
   "submission.email.submitting": "Enviando…",
-  "submission.email.help": "Se adjuntará el acta del último avance como PDF.",
-  "submission.email.success": "Acta enviada a {to} ({filename}).",
+  "submission.email.help": "Se adjuntarán como PDF los reportes seleccionados del último avance.",
+  "submission.email.success": "Reportes enviados a {to} ({filename}).",
+  "submission.email.reportType.label": "Tipo de reporte",
+  "submission.email.reportType.acta": "Acta de evaluación",
+  "submission.email.reportType.plagiarism": "Reporte de similitud (Copyleaks)",
+  "submission.email.reportType.both": "Acta + Reporte de similitud",
 } as const;
 
 export const enSubmissions: Record<keyof typeof esSubmissions, string> = {
@@ -441,8 +445,8 @@ export const enSubmissions: Record<keyof typeof esSubmissions, string> = {
   "submission.table.gradeOver20": "{n} / 20",
 
   // ---- Email report form ----
-  "submission.email.openButton": "Send report by email",
-  "submission.email.title": "Send report by email",
+  "submission.email.openButton": "Send reports by email",
+  "submission.email.title": "Send reports by email",
   "submission.email.close": "Close",
   "submission.email.toLabel": "Recipient email",
   "submission.email.toPlaceholder": "student@unt.edu.pe",
@@ -451,6 +455,10 @@ export const enSubmissions: Record<keyof typeof esSubmissions, string> = {
   "submission.email.counter": "{n} / 2000",
   "submission.email.submit": "Send email",
   "submission.email.submitting": "Sending…",
-  "submission.email.help": "The latest submission's report will be attached as a PDF.",
-  "submission.email.success": "Report sent to {to} ({filename}).",
+  "submission.email.help": "Selected PDF reports from the latest version will be attached.",
+  "submission.email.success": "Reports sent to {to} ({filename}).",
+  "submission.email.reportType.label": "Report type",
+  "submission.email.reportType.acta": "Evaluation report",
+  "submission.email.reportType.plagiarism": "Similarity report (Copyleaks)",
+  "submission.email.reportType.both": "Evaluation + Similarity",
 };
