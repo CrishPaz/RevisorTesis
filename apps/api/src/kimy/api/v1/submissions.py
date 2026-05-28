@@ -313,6 +313,7 @@ async def upload_version(
     background: BackgroundTasks,
     file: UploadFile = File(...),
     comment: Annotated[str | None, Form(max_length=2000)] = None,
+    enable_copyleaks: Annotated[bool, Form()] = True,
 ) -> SubmissionVersionDetail:
     submission = await submissions_service.get_submission(session, submission_id)
     if submission is None:
@@ -346,6 +347,7 @@ async def upload_version(
             content=content,
             mime_type=file.content_type or "application/octet-stream",
             comment=comment,
+            enable_copyleaks=enable_copyleaks,
         )
     except submissions_service.UnsupportedFileTypeError as exc:
         raise HTTPException(
@@ -415,6 +417,68 @@ async def download_version(
         filename=version.original_filename,
         media_type=version.mime_type,
     )
+
+
+@router.get(
+    "/{submission_id}/versions/{version_id}/annotated-text",
+)
+async def get_annotated_text(
+    submission_id: UUID,
+    version_id: UUID,
+    session: SessionDep,
+    user: CurrentUser,
+):
+    """Retorna el texto completo del documento con spans de coincidencia Copyleaks.
+
+    Acceso: estudiante dueño de la submission o roles administrativos.
+    Retorna 403 si la submission pertenece a otro estudiante, 404 si no existe.
+    """
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+
+    from kimy.models.document_chunk import DocumentChunk
+    from kimy.models.plagiarism_match import PlagiarismMatch
+    from kimy.schemas.annotated_text import AnnotatedTextResponse
+    from kimy.services import annotated_text_builder
+
+    submission = await submissions_service.get_submission(session, submission_id)
+    if submission is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
+        )
+
+    # Ownership check para estudiantes — 403 no revela si existe.
+    if user.role == UserRole.student and submission.student_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="forbidden",
+        )
+    # Para roles no-student: verificar acceso general.
+    if user.role != UserRole.student:
+        _ensure_can_access(submission, user)
+
+    version = next(
+        (v for v in submission.versions if v.id == version_id), None
+    )
+    if version is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="version not found"
+        )
+
+    chunks_stmt = (
+        select(DocumentChunk)
+        .where(DocumentChunk.version_id == version_id)
+        .order_by(DocumentChunk.chunk_index)
+    )
+    chunks = list((await session.execute(chunks_stmt)).scalars().all())
+
+    matches_stmt = (
+        select(PlagiarismMatch)
+        .where(PlagiarismMatch.version_id == version_id)
+    )
+    matches = list((await session.execute(matches_stmt)).scalars().all())
+
+    return annotated_text_builder.build(version_id, chunks, matches)
 
 
 @router.patch(
@@ -571,7 +635,14 @@ async def download_acta_pdf(
 @router.post(
     "/{submission_id}/email-report",
     dependencies=[
-        Depends(require_roles(UserRole.advisor, UserRole.coordinator, UserRole.admin))
+        Depends(
+            require_roles(
+                UserRole.student,
+                UserRole.advisor,
+                UserRole.coordinator,
+                UserRole.admin,
+            )
+        )
     ],
 )
 async def email_acta_pdf(
@@ -580,65 +651,137 @@ async def email_acta_pdf(
     user: CurrentUser,
     to: Annotated[str, Body(min_length=3, max_length=320)],
     message: Annotated[str | None, Body(max_length=2000)] = None,
+    report_type: Annotated[str, Body()] = "acta",
 ) -> dict[str, object]:
-    """Generate the acta PDF and send it as an attachment to ``to``.
+    """Genera el reporte solicitado y lo envía por email.
 
-    Only advisors/coordinators/admins can trigger this. Advisors are further
-    restricted by ``_ensure_can_access`` (only their own assigned submissions).
+    - report_type="acta" (default): comportamiento anterior — acta de revisión.
+    - report_type="plagiarism": reporte de similitud Copyleaks.
+    - report_type="both": ambos PDFs adjuntos en el mismo email.
+
+    Estudiante: solo puede acceder a sus propias submissions (ownership check).
+    Advisors/coordinadores/admin: acceso según lógica existente (_ensure_can_access).
     """
     import re
 
     from kimy.services.email.sender import (
         EmailDeliveryError,
         EmailNotConfiguredError,
-        send_with_attachment,
+        send_with_attachments,
     )
 
-    # Minimal RFC-ish email shape check — pydantic email-validator is overkill
-    # here since the address is user input, not a domain entity.
+    if report_type not in ("acta", "plagiarism", "both"):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="report_type debe ser 'acta', 'plagiarism' o 'both'",
+        )
+
+    # Minimal RFC-ish email shape check.
     if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", to.strip()):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Dirección de correo inválida",
         )
 
-    pdf_bytes, filename, submission = await _build_acta_pdf(
-        submission_id, session, user
-    )
+    # Ownership check para estudiantes.
+    if user.role == UserRole.student:
+        submission_check = await submissions_service.get_submission(session, submission_id)
+        if submission_check is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
+            )
+        if submission_check.student_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="forbidden",
+            )
 
-    advisor_label = user.full_name or "tu asesor"
-    subject = f"Acta de revisión — {submission.title}"
+    sender_label = user.full_name or "la plataforma"
+    attachments: list[tuple[bytes, str, str]] = []
+
+    if report_type in ("acta", "both"):
+        acta_bytes, acta_filename, submission = await _build_acta_pdf(
+            submission_id, session, user
+        )
+        attachments.append((acta_bytes, acta_filename, "application/pdf"))
+    else:
+        # Cargar la submission para el asunto y cuerpo del email.
+        submission = await submissions_service.get_submission(session, submission_id)
+        if submission is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="submission not found"
+            )
+        if user.role != UserRole.student:
+            _ensure_can_access(submission, user)
+
+    if report_type in ("plagiarism", "both"):
+        from sqlalchemy import select as _select
+
+        from kimy.models.plagiarism_match import PlagiarismMatch, PlagiarismSource
+        from kimy.services.reports.pdf_reports import render_plagiarism_report
+
+        latest = submissions_service.latest_version(submission)
+        if latest is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="La submission no tiene versiones",
+            )
+
+        from sqlalchemy.orm import selectinload as _selectinload
+
+        matches_stmt = (
+            _select(PlagiarismMatch)
+            .options(_selectinload(PlagiarismMatch.source_chunk))
+            .where(
+                PlagiarismMatch.version_id == latest.id,
+                PlagiarismMatch.source == PlagiarismSource.copyleaks,
+            )
+        )
+        copyleaks_matches = list((await session.execute(matches_stmt)).scalars().all())
+
+        if not copyleaks_matches:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="No hay resultados de similitud Copyleaks para esta version",
+            )
+
+        plag_bytes = render_plagiarism_report(
+            submission_title=submission.title,
+            matches=copyleaks_matches,
+        )
+        safe_slug = "".join(c if c.isalnum() else "_" for c in submission.title)[:80] or "plagiarism"
+        plag_filename = f"similitud_copyleaks_{safe_slug}.pdf"
+        attachments.append((plag_bytes, plag_filename, "application/pdf"))
+
     custom = (message or "").strip()
+    subject = f"Reporte académico — {submission.title}"
     body_text = (
         f"Hola,\n\n"
-        f"Te comparto el acta de revisión académica del avance "
-        f'"{submission.title}" del estudiante {submission.student.full_name}.\n\n'
-        + (f"Mensaje del asesor:\n{custom}\n\n" if custom else "")
-        + f"Saludos,\n{advisor_label}\nPlataforma Tesis"
+        f"Te comparto el reporte académico del avance "
+        f'"{submission.title}".\n\n'
+        + (f"Mensaje:\n{custom}\n\n" if custom else "")
+        + f"Saludos,\n{sender_label}\nPlataforma Tesis"
     )
     body_html = (
         "<p>Hola,</p>"
-        f"<p>Te comparto el acta de revisión académica del avance "
-        f"<b>{submission.title}</b> del estudiante "
-        f"{submission.student.full_name}.</p>"
+        f"<p>Te comparto el reporte académico del avance "
+        f"<b>{submission.title}</b>.</p>"
         + (
-            f"<p><b>Mensaje del asesor:</b><br/>"
-            f"{custom.replace(chr(10), '<br/>')}</p>"
+            f"<p><b>Mensaje:</b><br/>{custom.replace(chr(10), '<br/>')}</p>"
             if custom
             else ""
         )
-        + f"<p>Saludos,<br/>{advisor_label}<br/><i>Plataforma Tesis</i></p>"
+        + f"<p>Saludos,<br/>{sender_label}<br/><i>Plataforma Tesis</i></p>"
     )
 
+    filenames = [fn for _, fn, _ in attachments]
     try:
-        await send_with_attachment(
+        await send_with_attachments(
             to=to.strip(),
             subject=subject,
             body_text=body_text,
             body_html=body_html,
-            attachment_bytes=pdf_bytes,
-            attachment_filename=filename,
-            attachment_mime="application/pdf",
+            attachments=attachments,
         )
     except EmailNotConfiguredError as exc:
         raise HTTPException(
@@ -651,4 +794,4 @@ async def email_acta_pdf(
             detail=f"No se pudo enviar el correo: {exc}",
         ) from exc
 
-    return {"ok": True, "to": to.strip(), "filename": filename}
+    return {"ok": True, "to": to.strip(), "filenames": filenames}

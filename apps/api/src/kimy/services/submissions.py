@@ -169,6 +169,7 @@ async def upload_version(
     content: bytes,
     mime_type: str,
     comment: str | None,
+    enable_copyleaks: bool = True,
 ) -> SubmissionVersion:
     ext = _ext_from_filename(filename)
     if ext not in _ALLOWED_EXTENSIONS or mime_type not in _ALLOWED_MIMES:
@@ -192,6 +193,7 @@ async def upload_version(
         file_size_bytes=stored.size_bytes,
         file_sha256=stored.sha256,
         parsing_status=VersionParsingStatus.processing,
+        enable_copyleaks=enable_copyleaks,
     )
     session.add(version)
     await session.flush()

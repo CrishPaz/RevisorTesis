@@ -16,6 +16,7 @@ from pypdf import PdfReader
 class ExtractedParagraph:
     text: str
     heading_level: int | None  # 1..9 for Word headings, None for body / PDF lines
+    page_number: int | None = None  # 1-based page index; None for .docx or unknown
 
 
 @dataclass(slots=True)
@@ -51,12 +52,18 @@ def extract_from_docx(content: bytes) -> ExtractedDocument:
 def extract_from_pdf(content: bytes) -> ExtractedDocument:
     reader = PdfReader(io.BytesIO(content))
     out: list[ExtractedParagraph] = []
-    for page in reader.pages:
+    for page_idx, page in enumerate(reader.pages, start=1):
         text = page.extract_text() or ""
         for raw in text.splitlines():
             line = raw.strip()
             if line:
-                out.append(ExtractedParagraph(text=line, heading_level=None))
+                out.append(
+                    ExtractedParagraph(
+                        text=line,
+                        heading_level=None,
+                        page_number=page_idx,
+                    )
+                )
     return ExtractedDocument(paragraphs=out, page_count=len(reader.pages))
 
 

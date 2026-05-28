@@ -104,6 +104,7 @@ async def scan_version(
             section=chunk.section,
             text=chunk.text,
             char_count=chunk.char_count,
+            page_number=chunk.page_number,
             embedding=vec,
         )
         session.add(row)

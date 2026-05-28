@@ -12,8 +12,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,6 +34,7 @@ from kimy.services.plagiarism import scanner as plagiarism_scanner
 
 if TYPE_CHECKING:
     from kimy.models.submission import Submission
+    from kimy.models.submission_version import SubmissionVersion
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +125,10 @@ async def _run_inner(session: AsyncSession, version_id: UUID) -> None:
     except Exception:  # noqa: BLE001
         logger.exception("plagiarism scan failed for %s", version.id)
         plagiarism_summaries, embedder_name = [], "error"
+
+    # Run external Copyleaks scan when requested.
+    if version.enable_copyleaks:
+        await _run_copyleaks_scan(session, version, path)
 
     if plagiarism_summaries:
         from kimy.models.ai_finding import FindingSeverity, FindingType
@@ -323,14 +329,89 @@ async def _persist(
             )
         )
 
-    version.parsing_status = VersionParsingStatus.ai_completed
-    version.parsing_error = None
+    # Solo marca ai_completed si el pipeline Copyleaks no dejó el estado en failed.
+    if version.parsing_status != VersionParsingStatus.failed:
+        version.parsing_status = VersionParsingStatus.ai_completed
+        version.parsing_error = None
     await session.commit()
 
 
 async def _load_submission(session: AsyncSession, submission_id: UUID) -> Submission | None:
     from kimy.models.submission import Submission  # avoid circular import at module load
     return await session.get(Submission, submission_id)
+
+
+async def _run_copyleaks_scan(
+    session: AsyncSession,
+    version: "SubmissionVersion",
+    path: Path,
+) -> None:
+    """Ejecuta el scan externo de Copyleaks y persiste los matches.
+
+    Modifica ``version.parsing_status`` a ``failed`` con mensaje descriptivo
+    si ocurre un error de auth o timeout. Nunca relanza — es un best-effort
+    que no debe cancelar el resto del pipeline.
+    """
+    from kimy.models.document_chunk import DocumentChunk
+    from kimy.models.plagiarism_match import PlagiarismMatch, PlagiarismSource, PlagiarismStatus
+    from kimy.models.submission_version import VersionParsingStatus
+    from kimy.services.plagiarism.copyleaks_client import (
+        CopyleaksAuthError,
+        CopyleaksClient,
+        CopyleaksTimeoutError,
+    )
+    from kimy.services.plagiarism.copyleaks_mapper import map_copyleaks_hits
+    from sqlalchemy import select as _select
+
+    if not path.is_file():
+        logger.warning("copyleaks: archivo no encontrado para version %s", version.id)
+        return
+
+    pdf_bytes = await asyncio.to_thread(path.read_bytes)
+    scan_id = str(uuid4())
+    client = CopyleaksClient()
+
+    try:
+        token = await client.login()
+    except CopyleaksAuthError as exc:
+        logger.error("copyleaks auth error para version %s: %s", version.id, exc)
+        version.parsing_status = VersionParsingStatus.failed
+        version.parsing_error = str(exc)
+        await session.commit()
+        return
+
+    try:
+        await client.submit(pdf_bytes, scan_id=scan_id, token=token)
+        result = await client.poll_until_done(scan_id, token=token)
+    except CopyleaksTimeoutError as exc:
+        logger.error("copyleaks timeout para version %s: %s", version.id, exc)
+        version.parsing_status = VersionParsingStatus.failed
+        version.parsing_error = str(exc)
+        await session.commit()
+        return
+    except CopyleaksAuthError as exc:
+        logger.error("copyleaks error de envio para version %s: %s", version.id, exc)
+        version.parsing_status = VersionParsingStatus.failed
+        version.parsing_error = str(exc)
+        await session.commit()
+        return
+
+    # Cargar los chunks persistidos para el mapeo.
+    chunks_stmt = _select(DocumentChunk).where(
+        DocumentChunk.version_id == version.id
+    ).order_by(DocumentChunk.chunk_index)
+    chunks = list((await session.execute(chunks_stmt)).scalars().all())
+
+    matches = map_copyleaks_hits(version.id, result.hits, chunks)
+    for match in matches:
+        session.add(match)
+
+    await session.commit()
+    logger.info(
+        "copyleaks: %d match(es) persistidos para version %s",
+        len(matches),
+        version.id,
+    )
 
 
 # `run_for_version` is already async; pass it directly to FastAPI's

@@ -423,3 +423,110 @@ async def render_programs_report(session: AsyncSession) -> bytes:
     letterhead = make_letterhead("Reporte por programa")
     doc.build(story, onFirstPage=letterhead, onLaterPages=letterhead)
     return buf.getvalue()
+
+
+# ---------------------------------------------------------------------------
+# Plagiarism report (Copyleaks)
+# ---------------------------------------------------------------------------
+
+
+def render_plagiarism_report(
+    submission_title: str,
+    matches: list[PlagiarismMatch],
+) -> bytes:
+    """Genera un PDF con el reporte de similitud Copyleaks.
+
+    Args:
+        submission_title: Título del avance de tesis.
+        matches: Lista de PlagiarismMatch con source='copyleaks'.
+
+    Returns:
+        Bytes del PDF generado.
+    """
+    from kimy.models.plagiarism_match import PlagiarismSource
+
+    copyleaks_matches = [m for m in matches if m.source == PlagiarismSource.copyleaks]
+
+    global_similarity = 0.0
+    if copyleaks_matches:
+        global_similarity = max(m.similarity for m in copyleaks_matches)
+
+    buf = BytesIO()
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=A4,
+        leftMargin=2.0 * cm,
+        rightMargin=2.0 * cm,
+        topMargin=LETTERHEAD_TOP_MARGIN,
+        bottomMargin=LETTERHEAD_BOTTOM_MARGIN,
+        title=f"Reporte de similitud · {submission_title}",
+        author="Tesis",
+    )
+    styles = _styles()
+    story: list[Any] = []
+
+    story.append(Paragraph("Reporte de similitud Copyleaks", styles["h1"]))
+    story.append(
+        Paragraph(
+            f"Avance: {submission_title}",
+            styles["muted"],
+        )
+    )
+    story.append(
+        Paragraph(
+            f"Similitud global máxima: {global_similarity * 100:.1f}%",
+            styles["body"],
+        )
+    )
+    story.append(Spacer(1, 0.4 * cm))
+
+    if not copyleaks_matches:
+        story.append(
+            Paragraph(
+                "No se encontraron coincidencias externas en el análisis Copyleaks.",
+                styles["body"],
+            )
+        )
+    else:
+        styles_cell = styles["cell"]
+        styles_strong = styles["cell_strong"]
+        rows: list[list[Any]] = [["Fuente (URL)", "Similitud (%)", "Fragmento coincidente"]]
+
+        for m in sorted(copyleaks_matches, key=lambda x: x.similarity, reverse=True):
+            source_url = "—"
+            # source_url no está en el modelo actual; se muestra como "—"
+            fragment = ""
+            if m.source_chunk is not None:
+                fragment = (m.source_chunk.text or "")[:200]
+
+            rows.append([
+                Paragraph(source_url, styles_cell),
+                Paragraph(f"{m.similarity * 100:.1f}%", styles_cell),
+                Paragraph(fragment or "—", styles_cell),
+            ])
+
+        story.append(
+            _styled_table(
+                rows,
+                col_widths=[
+                    6.0 * cm,   # URL
+                    2.5 * cm,   # Similitud
+                    8.5 * cm,   # Fragmento
+                ],
+                align_right_cols=(1,),
+            )
+        )
+
+    story.append(Spacer(1, 0.5 * cm))
+    story.append(HRFlowable(width="100%", thickness=0.4, color=AURORA_HAIRLINE))
+    story.append(
+        Paragraph(
+            "Este reporte fue generado automáticamente mediante el servicio externo Copyleaks. "
+            "La similitud detectada no implica plagio por sí sola; requiere análisis del asesor.",
+            styles["muted"],
+        )
+    )
+
+    letterhead = make_letterhead("Reporte de similitud")
+    doc.build(story, onFirstPage=letterhead, onLaterPages=letterhead)
+    return buf.getvalue()
