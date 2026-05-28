@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Badge } from "@/components/ui/badge";
 import { VersionStatusBadge } from "@/features/submissions/status-badge";
 import { getMessages } from "@/lib/i18n/server";
@@ -12,9 +14,11 @@ function formatSize(bytes: number) {
 export async function VersionList({
   versions,
   downloadBase,
+  viewerBase,
 }: {
   versions: SubmissionVersionSummary[];
   downloadBase: string;
+  viewerBase?: string;
 }) {
   const { t, locale } = await getMessages();
   const dateLocale = locale === "es" ? "es-PE" : "en-US";
@@ -64,14 +68,24 @@ export async function VersionList({
                 </p>
               ) : null}
             </div>
-            <a
-              href={`${downloadBase}/${v.id}/file`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm font-medium text-zinc-900 underline-offset-4 hover:underline dark:text-[color:var(--aurora-cream)]"
-            >
-              {t("submission.versionList.download")}
-            </a>
+            <div className="flex flex-col items-end gap-2">
+              <a
+                href={`${downloadBase}/${v.id}/file`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm font-medium text-zinc-900 underline-offset-4 hover:underline dark:text-[color:var(--aurora-cream)]"
+              >
+                {t("submission.versionList.download")}
+              </a>
+              {viewerBase && v.parsing_status === "ai_completed" ? (
+                <Link
+                  href={`${viewerBase}/${v.id}/viewer`}
+                  className="text-sm font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"
+                >
+                  {t("submission.versionList.viewSimilarity")}
+                </Link>
+              ) : null}
+            </div>
           </div>
         </li>
       ))}

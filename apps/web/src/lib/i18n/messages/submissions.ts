@@ -171,6 +171,7 @@ export const esSubmissions = {
     "Aún no hay versiones. Sube la primera con el formulario de arriba.",
   "submission.versionList.pages": "{n} páginas",
   "submission.versionList.download": "Descargar",
+  "submission.versionList.viewSimilarity": "Ver reporte de similitud",
 
   // ---- Filters bar ----
   "submission.filters.allPrograms": "Todos los programas",
@@ -401,6 +402,7 @@ export const enSubmissions: Record<keyof typeof esSubmissions, string> = {
     "No versions yet. Upload the first one with the form above.",
   "submission.versionList.pages": "{n} pages",
   "submission.versionList.download": "Download",
+  "submission.versionList.viewSimilarity": "View similarity report",
 
   // ---- Filters bar ----
   "submission.filters.allPrograms": "All programs",

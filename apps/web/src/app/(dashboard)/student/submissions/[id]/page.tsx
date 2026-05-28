@@ -126,6 +126,7 @@ export default async function StudentSubmissionDetail({
           <VersionList
             versions={submission.versions}
             downloadBase={`/api/submissions/${submission.id}/versions`}
+            viewerBase={`/student/submissions/${submission.id}/versions`}
           />
         </CardContent>
       </Card>
