@@ -13,8 +13,20 @@ class ProgramCodeAlreadyExistsError(Exception):
     pass
 
 
-async def list_programs(session: AsyncSession) -> list[AcademicProgram]:
-    stmt = select(AcademicProgram).order_by(AcademicProgram.name)
+async def list_programs(
+    session: AsyncSession,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[AcademicProgram]:
+    safe_limit = max(1, min(limit, 500))
+    safe_offset = max(0, offset)
+    stmt = (
+        select(AcademicProgram)
+        .order_by(AcademicProgram.name)
+        .limit(safe_limit)
+        .offset(safe_offset)
+    )
     return list((await session.execute(stmt)).scalars().all())
 
 

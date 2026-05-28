@@ -5,8 +5,8 @@ export default function SubmissionLayout() {
     <Stack
       screenOptions={{
         headerBackTitle: "Atrás",
-        headerStyle: { backgroundColor: "#fafafa" },
-        headerTintColor: "#0f172a",
+        headerStyle: { backgroundColor: "#f0f9ff" },
+        headerTintColor: "#0284c7",
       }}
     />
   );

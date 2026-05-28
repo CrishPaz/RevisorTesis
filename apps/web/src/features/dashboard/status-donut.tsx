@@ -10,6 +10,7 @@ import {
 } from "recharts";
 
 import { SUBMISSION_STATUS_LABELS, type SubmissionStatus } from "@/lib/api/types";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 const COLORS: Record<SubmissionStatus, string> = {
   draft: "#a1a1aa",
@@ -24,6 +25,7 @@ export function StatusDonut({
 }: {
   data: { status: string; count: number }[];
 }) {
+  const t = useTranslations();
   const chartData = data
     .filter((d) => d.count > 0)
     .map((d) => ({
@@ -35,7 +37,7 @@ export function StatusDonut({
   if (chartData.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-zinc-500">
-        Sin avances registrados aún.
+        {t("dashboard.statusDonut.empty")}
       </p>
     );
   }

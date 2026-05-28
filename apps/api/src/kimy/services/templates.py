@@ -96,11 +96,17 @@ async def list_templates(
     session: AsyncSession,
     *,
     program_id: UUID | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> Sequence[TemplateDocument]:
+    safe_limit = max(1, min(limit, 500))
+    safe_offset = max(0, offset)
     stmt = (
         select(TemplateDocument)
         .options(selectinload(TemplateDocument.program))
         .order_by(desc(TemplateDocument.created_at))
+        .limit(safe_limit)
+        .offset(safe_offset)
     )
     if program_id is not None:
         stmt = stmt.where(TemplateDocument.program_id == program_id)

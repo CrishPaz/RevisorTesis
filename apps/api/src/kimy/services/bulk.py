@@ -126,25 +126,26 @@ async def assign_advisor(
     from kimy.services.orcid import advisor_fit
 
     submissions = await _load_submissions(session, ids)
-    out: list[BulkOutcome] = []
     for s in submissions:
         s.advisor_id = advisor_id
     await session.commit()
 
-    # Recompute fit after we know the assignment took effect.
-    for s in submissions:
-        try:
-            fit = await advisor_fit.update_submission_fit(
-                session, submission_id=s.id, advisor_id=advisor_id
-            )
+    out: list[BulkOutcome] = []
+    try:
+        fits = await advisor_fit.update_submissions_fit_bulk(
+            session, submissions=submissions, advisor_id=advisor_id
+        )
+        for s in submissions:
+            fit = fits.get(s.id)
             score_msg = (
                 f"fit {fit.score * 100:.0f}% (alert={fit.alert})"
                 if fit is not None
                 else "advisor has no ORCID publications"
             )
             out.append(BulkOutcome(s.id, True, score_msg))
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("bulk fit recompute failed for %s", s.id)
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("bulk fit recompute failed")
+        for s in submissions:
             out.append(BulkOutcome(s.id, False, f"fit recompute failed: {exc}"))
 
     not_found = set(ids) - {s.id for s in submissions}

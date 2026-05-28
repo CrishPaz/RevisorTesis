@@ -2,21 +2,29 @@
 
 All queries are read-only and respect the optional ``program_id`` filter so the
 same endpoint can drive a program-level view or a global view.
+
+The dashboard fans out ~10 independent aggregate queries in parallel: each one
+opens its own AsyncSession (asyncpg connections cannot multiplex on a single
+session). Wall time drops from "sum of all latencies" to "max of all latencies".
 """
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass, field
 from uuid import UUID
 
 from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from kimy.db.session import AsyncSessionLocal
 from kimy.models.academic_program import AcademicProgram
+from kimy.models.advisor_profile import AdvisorProfile
 from kimy.models.ai_evaluation import AIEvaluation
 from kimy.models.ai_finding import AIFinding, HumanAction
 from kimy.models.citation import Citation, CitationStatus
 from kimy.models.plagiarism_match import PlagiarismMatch
 from kimy.models.submission import Submission, SubmissionStatus
+from kimy.models.submission_version import SubmissionVersion
 
 
 @dataclass(slots=True)
@@ -50,39 +58,40 @@ class StatsOverview:
     grades_per_program: list[ProgramGrade] = field(default_factory=list)
 
 
-async def overview(
-    session: AsyncSession, *, program_id: UUID | None = None
-) -> StatsOverview:
-    out = StatsOverview()
+def _maybe_filter_program(stmt, program_id: UUID | None):
+    """Helper: tack on the program filter when present."""
+    if program_id is None:
+        return stmt
+    return stmt.where(Submission.program_id == program_id)
 
+
+async def _q_total(program_id: UUID | None) -> int:
     base = select(Submission)
-    if program_id is not None:
-        base = base.where(Submission.program_id == program_id)
+    base = _maybe_filter_program(base, program_id)
+    async with AsyncSessionLocal() as s:
+        return (
+            await s.scalar(select(func.count()).select_from(base.subquery()))
+        ) or 0
 
-    out.total_submissions = (
-        await session.scalar(select(func.count()).select_from(base.subquery()))
-        or 0
-    )
 
-    # Counts by status.
+async def _q_by_status(program_id: UUID | None) -> list[StatusCount]:
     stmt = select(Submission.status, func.count(Submission.id)).group_by(
         Submission.status
     )
-    if program_id is not None:
-        stmt = stmt.where(Submission.program_id == program_id)
-    rows = (await session.execute(stmt)).all()
-    out.submissions_by_status = [
+    stmt = _maybe_filter_program(stmt, program_id)
+    async with AsyncSessionLocal() as s:
+        rows = (await s.execute(stmt)).all()
+    return [
         StatusCount(
-            status=(s.value if isinstance(s, SubmissionStatus) else str(s)),
+            status=(st.value if isinstance(st, SubmissionStatus) else str(st)),
             count=int(c),
         )
-        for s, c in rows
+        for st, c in rows
     ]
 
-    # Average AI grade (latest evaluation per version is the only one we keep — see _persist).
-    from kimy.models.submission_version import SubmissionVersion
 
-    grade_stmt = (
+async def _q_grade(program_id: UUID | None) -> tuple[float | None, float | None]:
+    stmt = (
         select(
             func.avg(AIEvaluation.decimal_grade),
             func.avg(AIEvaluation.total_percentage),
@@ -91,17 +100,19 @@ async def overview(
         .join(SubmissionVersion, SubmissionVersion.id == AIEvaluation.version_id)
         .join(Submission, Submission.id == SubmissionVersion.submission_id)
     )
-    if program_id is not None:
-        grade_stmt = grade_stmt.where(Submission.program_id == program_id)
-    grade_row = (await session.execute(grade_stmt)).one()
-    avg_grade, avg_pct, eval_count = grade_row
-    if eval_count:
-        out.avg_ai_grade = float(avg_grade) if avg_grade is not None else None
-        out.avg_ai_percentage = float(avg_pct) if avg_pct is not None else None
+    stmt = _maybe_filter_program(stmt, program_id)
+    async with AsyncSessionLocal() as s:
+        avg_grade, avg_pct, count = (await s.execute(stmt)).one()
+    if not count:
+        return None, None
+    return (
+        float(avg_grade) if avg_grade is not None else None,
+        float(avg_pct) if avg_pct is not None else None,
+    )
 
-    # AI-Human concordance: of the findings the advisor reviewed, how many did
-    # they accept verbatim? (action = accepted).
-    concord_stmt = (
+
+async def _q_concordance(program_id: UUID | None) -> float | None:
+    stmt = (
         select(
             func.count(AIFinding.id),
             func.sum(
@@ -113,46 +124,48 @@ async def overview(
         .join(Submission, Submission.id == SubmissionVersion.submission_id)
         .where(AIFinding.human_action.is_not(None))
     )
-    if program_id is not None:
-        concord_stmt = concord_stmt.where(Submission.program_id == program_id)
-    reviewed, accepted = (await session.execute(concord_stmt)).one()
-    if reviewed and reviewed > 0:
-        out.ai_human_concordance_pct = float(accepted or 0) * 100.0 / float(reviewed)
+    stmt = _maybe_filter_program(stmt, program_id)
+    async with AsyncSessionLocal() as s:
+        reviewed, accepted = (await s.execute(stmt)).one()
+    if not reviewed:
+        return None
+    return float(accepted or 0) * 100.0 / float(reviewed)
 
-    # Plagiarism alerts: distinct submissions with any match.
-    plag_stmt = (
+
+async def _q_plagiarism_alerts(program_id: UUID | None) -> int:
+    stmt = (
         select(func.count(func.distinct(PlagiarismMatch.version_id)))
         .join(SubmissionVersion, SubmissionVersion.id == PlagiarismMatch.version_id)
         .join(Submission, Submission.id == SubmissionVersion.submission_id)
     )
-    if program_id is not None:
-        plag_stmt = plag_stmt.where(Submission.program_id == program_id)
-    out.plagiarism_alerts = int((await session.execute(plag_stmt)).scalar() or 0)
+    stmt = _maybe_filter_program(stmt, program_id)
+    async with AsyncSessionLocal() as s:
+        return int((await s.execute(stmt)).scalar() or 0)
 
-    # Advisor-fit alerts: submissions with advisor_fit_alert=True.
-    fit_stmt = select(func.count(Submission.id)).where(
+
+async def _q_advisor_fit_alerts(program_id: UUID | None) -> int:
+    stmt = select(func.count(Submission.id)).where(
         Submission.advisor_fit_alert.is_(True)
     )
-    if program_id is not None:
-        fit_stmt = fit_stmt.where(Submission.program_id == program_id)
-    out.advisor_fit_alerts = int((await session.execute(fit_stmt)).scalar() or 0)
+    stmt = _maybe_filter_program(stmt, program_id)
+    async with AsyncSessionLocal() as s:
+        return int((await s.execute(stmt)).scalar() or 0)
 
-    # Low compliance (AI total_percentage < 60), counted at the submission level
-    # via its evaluations.
-    low_stmt = (
+
+async def _q_low_compliance(program_id: UUID | None) -> int:
+    stmt = (
         select(func.count(func.distinct(Submission.id)))
         .join(SubmissionVersion, SubmissionVersion.submission_id == Submission.id)
         .join(AIEvaluation, AIEvaluation.version_id == SubmissionVersion.id)
         .where(AIEvaluation.total_percentage < 60)
     )
-    if program_id is not None:
-        low_stmt = low_stmt.where(Submission.program_id == program_id)
-    out.low_compliance_submissions = int(
-        (await session.execute(low_stmt)).scalar() or 0
-    )
+    stmt = _maybe_filter_program(stmt, program_id)
+    async with AsyncSessionLocal() as s:
+        return int((await s.execute(stmt)).scalar() or 0)
 
-    # Citation breakdown.
-    cit_stmt = (
+
+async def _q_citations(program_id: UUID | None) -> tuple[int, int]:
+    stmt = (
         select(
             func.count(Citation.id),
             func.sum(
@@ -174,46 +187,89 @@ async def overview(
         .join(SubmissionVersion, SubmissionVersion.id == Citation.version_id)
         .join(Submission, Submission.id == SubmissionVersion.submission_id)
     )
-    if program_id is not None:
-        cit_stmt = cit_stmt.where(Submission.program_id == program_id)
-    cit_total, cit_bad = (await session.execute(cit_stmt)).one()
-    out.citations_total = int(cit_total or 0)
-    out.citations_problematic = int(cit_bad or 0)
+    stmt = _maybe_filter_program(stmt, program_id)
+    async with AsyncSessionLocal() as s:
+        total, bad = (await s.execute(stmt)).one()
+    return int(total or 0), int(bad or 0)
 
-    # Average grade per program (skipped when filtering by a single program).
-    if program_id is None:
-        per_prog_stmt = (
-            select(
-                AcademicProgram.id,
-                AcademicProgram.code,
-                AcademicProgram.name,
-                func.avg(AIEvaluation.decimal_grade),
-                func.count(func.distinct(Submission.id)),
-            )
-            .join(Submission, Submission.program_id == AcademicProgram.id)
-            .join(SubmissionVersion, SubmissionVersion.submission_id == Submission.id)
-            .join(AIEvaluation, AIEvaluation.version_id == SubmissionVersion.id)
-            .group_by(AcademicProgram.id, AcademicProgram.code, AcademicProgram.name)
-            .order_by(AcademicProgram.code)
+
+async def _q_grades_per_program() -> list[ProgramGrade]:
+    stmt = (
+        select(
+            AcademicProgram.id,
+            AcademicProgram.code,
+            AcademicProgram.name,
+            func.avg(AIEvaluation.decimal_grade),
+            func.count(func.distinct(Submission.id)),
         )
-        per_prog_rows = (await session.execute(per_prog_stmt)).all()
-        out.grades_per_program = [
-            ProgramGrade(
-                program_id=str(pid),
-                program_code=code,
-                program_name=name,
-                average_grade=float(avg or 0),
-                submissions_count=int(cnt or 0),
-            )
-            for pid, code, name, avg, cnt in per_prog_rows
-        ]
+        .join(Submission, Submission.program_id == AcademicProgram.id)
+        .join(SubmissionVersion, SubmissionVersion.submission_id == Submission.id)
+        .join(AIEvaluation, AIEvaluation.version_id == SubmissionVersion.id)
+        .group_by(AcademicProgram.id, AcademicProgram.code, AcademicProgram.name)
+        .order_by(AcademicProgram.code)
+    )
+    async with AsyncSessionLocal() as s:
+        rows = (await s.execute(stmt)).all()
+    return [
+        ProgramGrade(
+            program_id=str(pid),
+            program_code=code,
+            program_name=name,
+            average_grade=float(avg or 0),
+            submissions_count=int(cnt or 0),
+        )
+        for pid, code, name, avg, cnt in rows
+    ]
 
-    # Advisors with ORCID linked (not filterable by program — global).
-    from kimy.models.advisor_profile import AdvisorProfile
 
-    orcid_stmt = select(func.count(AdvisorProfile.user_id)).where(
+async def _q_advisors_with_orcid() -> int:
+    stmt = select(func.count(AdvisorProfile.user_id)).where(
         AdvisorProfile.orcid_id.is_not(None)
     )
-    out.total_advisors_with_orcid = int((await session.execute(orcid_stmt)).scalar() or 0)
+    async with AsyncSessionLocal() as s:
+        return int((await s.execute(stmt)).scalar() or 0)
+
+
+async def overview(
+    session: AsyncSession, *, program_id: UUID | None = None
+) -> StatsOverview:
+    """Fan out every dashboard aggregate in parallel.
+
+    The ``session`` argument is kept for backwards compatibility with the
+    FastAPI dependency wiring; each aggregate uses its own session because
+    AsyncSession does not support concurrent operations on the same instance.
+    """
+    out = StatsOverview()
+
+    # Run independent aggregates in parallel. Each owns its own session.
+    tasks = [
+        _q_total(program_id),
+        _q_by_status(program_id),
+        _q_grade(program_id),
+        _q_concordance(program_id),
+        _q_plagiarism_alerts(program_id),
+        _q_advisor_fit_alerts(program_id),
+        _q_low_compliance(program_id),
+        _q_citations(program_id),
+        _q_advisors_with_orcid(),
+    ]
+    if program_id is None:
+        tasks.append(_q_grades_per_program())
+
+    results = await asyncio.gather(*tasks)
+
+    out.total_submissions = results[0]
+    out.submissions_by_status = results[1]
+    avg_grade, avg_pct = results[2]
+    out.avg_ai_grade = avg_grade
+    out.avg_ai_percentage = avg_pct
+    out.ai_human_concordance_pct = results[3]
+    out.plagiarism_alerts = results[4]
+    out.advisor_fit_alerts = results[5]
+    out.low_compliance_submissions = results[6]
+    out.citations_total, out.citations_problematic = results[7]
+    out.total_advisors_with_orcid = results[8]
+    if program_id is None:
+        out.grades_per_program = results[9]
 
     return out

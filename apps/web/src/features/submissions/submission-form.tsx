@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useActionState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -11,9 +11,11 @@ import {
   type CreateSubmissionResult,
 } from "@/lib/api/submissions";
 import { PROGRAM_LEVEL_LABELS, type Program } from "@/lib/api/types";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 export function SubmissionForm({ programs }: { programs: Program[] }) {
   const router = useRouter();
+  const t = useTranslations();
   const formRef = useRef<HTMLFormElement>(null);
   const [state, formAction, pending] = useActionState<
     CreateSubmissionResult | null,
@@ -30,8 +32,7 @@ export function SubmissionForm({ programs }: { programs: Program[] }) {
   if (programs.length === 0) {
     return (
       <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-        Aún no hay programas registrados. Contacta al administrador para que cree
-        tu programa antes de poder subir avances.
+        {t("submission.form.noPrograms")}
       </p>
     );
   }
@@ -39,13 +40,13 @@ export function SubmissionForm({ programs }: { programs: Program[] }) {
   return (
     <form ref={formRef} action={formAction} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="program_id">Programa académico</Label>
+        <Label htmlFor="program_id">{t("submission.form.programLabel")}</Label>
         <select
           id="program_id"
           name="program_id"
           required
           defaultValue={programs[0]?.id}
-          className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)] dark:focus-visible:ring-violet-500/40"
+          className="flex h-10 w-full rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)] dark:focus-visible:ring-sky-500/40"
         >
           {programs.map((p) => (
             <option key={p.id} value={p.id}>
@@ -56,11 +57,11 @@ export function SubmissionForm({ programs }: { programs: Program[] }) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="title">Título del avance</Label>
+        <Label htmlFor="title">{t("submission.form.titleLabel")}</Label>
         <Input
           id="title"
           name="title"
-          placeholder="Avance del Capítulo 1"
+          placeholder={t("submission.form.titlePlaceholder")}
           minLength={2}
           maxLength={255}
           required
@@ -68,11 +69,11 @@ export function SubmissionForm({ programs }: { programs: Program[] }) {
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="chapter">Capítulo (opcional)</Label>
+        <Label htmlFor="chapter">{t("submission.form.chapterLabel")}</Label>
         <Input
           id="chapter"
           name="chapter"
-          placeholder="Capítulo 1, Tesis completa, etc."
+          placeholder={t("submission.form.chapterPlaceholder")}
           maxLength={100}
         />
       </div>
@@ -84,7 +85,7 @@ export function SubmissionForm({ programs }: { programs: Program[] }) {
       ) : null}
 
       <Button type="submit" disabled={pending}>
-        {pending ? "Creando…" : "Crear avance"}
+        {pending ? t("submission.form.creating") : t("submission.form.submit")}
       </Button>
     </form>
   );

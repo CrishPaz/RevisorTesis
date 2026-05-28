@@ -47,11 +47,13 @@ class PlagiarismMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         PgUUID(as_uuid=True),
         ForeignKey("document_chunks.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
     matched_chunk_id: Mapped[UUID] = mapped_column(
         PgUUID(as_uuid=True),
         ForeignKey("document_chunks.id", ondelete="CASCADE"),
         nullable=False,
+        index=True,
     )
 
     similarity: Mapped[float] = mapped_column(Float, nullable=False)
@@ -71,6 +73,7 @@ class PlagiarismMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         PgUUID(as_uuid=True),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=True,
+        index=True,
     )
     reviewed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

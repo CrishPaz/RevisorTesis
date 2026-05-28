@@ -1,6 +1,6 @@
 """Coordinator PDF reports — submissions list and program rollup.
 
-Both use the shared Aurelio letterhead (``pdf_letterhead.make_letterhead``).
+Both use the shared Tesis letterhead (``pdf_letterhead.make_letterhead``).
 """
 from __future__ import annotations
 
@@ -189,8 +189,8 @@ async def render_submissions_report(
         rightMargin=1.6 * cm,
         topMargin=LETTERHEAD_TOP_MARGIN,
         bottomMargin=LETTERHEAD_BOTTOM_MARGIN,
-        title="Reporte de avances · Aurelio",
-        author="Aurelio",
+        title="Reporte de avances · Tesis",
+        author="Tesis",
     )
     styles = _styles()
     story: list[Any] = []
@@ -279,7 +279,7 @@ async def render_submissions_report(
     story.append(HRFlowable(width="100%", thickness=0.4, color=AURORA_HAIRLINE))
     story.append(
         Paragraph(
-            "Documento generado automáticamente por la plataforma Aurelio. "
+            "Documento generado automáticamente por la plataforma Tesis. "
             "Las decisiones académicas finales son responsabilidad del coordinador.",
             styles["muted"],
         )
@@ -346,8 +346,8 @@ async def render_programs_report(session: AsyncSession) -> bytes:
         rightMargin=2.0 * cm,
         topMargin=LETTERHEAD_TOP_MARGIN,
         bottomMargin=LETTERHEAD_BOTTOM_MARGIN,
-        title="Reporte por programa · Aurelio",
-        author="Aurelio",
+        title="Reporte por programa · Tesis",
+        author="Tesis",
     )
     styles = _styles()
     story: list[Any] = []
@@ -413,7 +413,7 @@ async def render_programs_report(session: AsyncSession) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.4, color=AURORA_HAIRLINE))
     story.append(
         Paragraph(
-            "Documento generado automáticamente por la plataforma Aurelio. "
+            "Documento generado automáticamente por la plataforma Tesis. "
             "Promedios calculados sobre las últimas evaluaciones IA disponibles "
             "por avance.",
             styles["muted"],

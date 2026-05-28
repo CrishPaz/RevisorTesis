@@ -220,8 +220,8 @@ async def render_executive_report(session: AsyncSession) -> bytes:
         rightMargin=1.8 * cm,
         topMargin=LETTERHEAD_TOP_MARGIN,
         bottomMargin=LETTERHEAD_BOTTOM_MARGIN,
-        title="Reporte ejecutivo · Aurelio",
-        author="Aurelio",
+        title="Reporte ejecutivo · Tesis",
+        author="Tesis",
     )
     styles = _styles()
     story: list[Any] = []
@@ -229,7 +229,7 @@ async def render_executive_report(session: AsyncSession) -> bytes:
     story.append(Paragraph("Reporte ejecutivo", styles["h1"]))
     story.append(
         Paragraph(
-            "Resumen consolidado de la plataforma Aurelio en este momento.",
+            "Resumen consolidado de la plataforma Tesis en este momento.",
             styles["muted"],
         )
     )
@@ -387,7 +387,7 @@ async def render_executive_report(session: AsyncSession) -> bytes:
     story.append(HRFlowable(width="100%", thickness=0.4, color=AURORA_HAIRLINE))
     story.append(
         Paragraph(
-            "Documento ejecutivo generado por Aurelio. Cifras calculadas sobre "
+            "Documento ejecutivo generado por Tesis. Cifras calculadas sobre "
             "las últimas evaluaciones IA disponibles. Para detalle por avance, "
             "consultar el reporte de avances completo.",
             styles["muted"],
@@ -411,8 +411,8 @@ async def render_activity_report(session: AsyncSession, *, limit: int = 50) -> b
         rightMargin=2.0 * cm,
         topMargin=LETTERHEAD_TOP_MARGIN,
         bottomMargin=LETTERHEAD_BOTTOM_MARGIN,
-        title="Reporte de actividad · Aurelio",
-        author="Aurelio",
+        title="Reporte de actividad · Tesis",
+        author="Tesis",
     )
     styles = _styles()
     story: list[Any] = []

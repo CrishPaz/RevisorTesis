@@ -50,6 +50,14 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Emit a minimal standalone runtime (Dockerfile copies .next/standalone).
   output: "standalone",
+  experimental: {
+    serverActions: {
+      // Defaults to 1MB; raised to fit BULK submission uploads (up to ~10
+      // files × 5MB each). Keep per-file client-side check in sync (see
+      // version-uploader.tsx and bulk-submission-form.tsx).
+      bodySizeLimit: "55mb",
+    },
+  },
   async headers() {
     return [
       {

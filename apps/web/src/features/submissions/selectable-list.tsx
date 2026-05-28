@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -12,6 +12,7 @@ import {
 } from "@/features/submissions/status-badge";
 import type { AdvisorOption } from "@/lib/api/submissions";
 import type { SubmissionSummary } from "@/lib/api/types";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 export function SelectableSubmissionsList({
   submissions,
@@ -20,6 +21,7 @@ export function SelectableSubmissionsList({
   submissions: SubmissionSummary[];
   advisors: AdvisorOption[];
 }) {
+  const t = useTranslations();
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
   const allChecked = useMemo(
@@ -57,7 +59,7 @@ export function SelectableSubmissionsList({
             onChange={toggleAll}
             disabled={submissions.length === 0}
           />
-          Seleccionar todos ({submissions.length})
+          {t("submission.selectable.selectAll", { n: submissions.length })}
         </label>
       </div>
 
@@ -69,8 +71,8 @@ export function SelectableSubmissionsList({
               key={s.id}
               className={`rounded-lg border p-4 transition-colors ${
                 checked
-                  ? "border-zinc-900 bg-zinc-50 dark:border-zinc-50 dark:bg-[rgba(20,22,62,0.55)]"
-                  : "border-zinc-200 bg-white dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)]"
+                  ? "border-zinc-900 bg-zinc-50 dark:border-zinc-50 dark:bg-[rgba(11,31,51,0.55)]"
+                  : "border-zinc-200 bg-white dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)]"
               }`}
             >
               <div className="flex flex-wrap items-start gap-3">
@@ -86,7 +88,9 @@ export function SelectableSubmissionsList({
                     {s.latest_version_status ? (
                       <VersionStatusBadge status={s.latest_version_status} />
                     ) : (
-                      <Badge variant="outline">Sin versiones</Badge>
+                      <Badge variant="outline">
+                        {t("submission.list.noVersions")}
+                      </Badge>
                     )}
                     {s.latest_version_number ? (
                       <Badge variant="muted">v{s.latest_version_number}</Badge>
@@ -94,11 +98,15 @@ export function SelectableSubmissionsList({
                     <Badge variant="outline">[{s.program.code}]</Badge>
                     {s.advisor_fit_alert ? (
                       <Badge variant="destructive">
-                        ORCID fit {((s.advisor_fit_score ?? 0) * 100).toFixed(0)}%
+                        {t("submission.list.orcidFit", {
+                          n: ((s.advisor_fit_score ?? 0) * 100).toFixed(0),
+                        })}
                       </Badge>
                     ) : s.advisor_fit_score !== null ? (
                       <Badge variant="success">
-                        ORCID fit {(s.advisor_fit_score * 100).toFixed(0)}%
+                        {t("submission.list.orcidFit", {
+                          n: (s.advisor_fit_score * 100).toFixed(0),
+                        })}
                       </Badge>
                     ) : null}
                   </div>
@@ -131,7 +139,7 @@ export function SelectableSubmissionsList({
                     rel="noopener noreferrer"
                     className="text-xs font-medium text-zinc-900 underline-offset-4 hover:underline dark:text-[color:var(--aurora-cream)]"
                   >
-                    Descargar acta PDF →
+                    {t("submission.advisorDetail.downloadActa")} →
                   </a>
                 </div>
               </div>

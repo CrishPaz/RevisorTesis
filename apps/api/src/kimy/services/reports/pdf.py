@@ -2,7 +2,7 @@
 
 Generated on-demand via reportlab so we don't need a system-level PDF engine
 (weasyprint/wkhtmltopdf) on Windows. The output includes:
-- Header with Aurelio branding + submission metadata + student/advisor
+- Header with Tesis branding + submission metadata + student/advisor
 - AI evaluation summary (executive + scores per dimension)
 - Findings grouped by severity, with the advisor's human action when present
 - Plagiarism matches summary
@@ -161,8 +161,8 @@ def render_acta(
         rightMargin=2.0 * cm,
         topMargin=LETTERHEAD_TOP_MARGIN,
         bottomMargin=LETTERHEAD_BOTTOM_MARGIN,
-        title=f"Acta Aurelio - {submission.title}",
-        author="Aurelio",
+        title=f"Acta Tesis - {submission.title}",
+        author="Tesis",
     )
     styles = _styles()
     story: list[Any] = []
@@ -325,7 +325,7 @@ def render_acta(
     story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#d4d4d8")))
     story.append(
         Paragraph(
-            "Este documento fue generado automáticamente por la plataforma Aurelio. "
+            "Este documento fue generado automáticamente por la plataforma Tesis. "
             "Las decisiones académicas finales son responsabilidad del asesor y del coordinador del programa.",
             styles["muted"],
         )

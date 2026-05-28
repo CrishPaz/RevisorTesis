@@ -5,6 +5,7 @@ link and on any explicit "refresh" request from the advisor.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from datetime import UTC, datetime
 from typing import Any
@@ -41,11 +42,19 @@ async def link_advisor(
         encrypt(token.refresh_token) if token.refresh_token else None
     )
 
-    person = await orcid_api.fetch_person(token.orcid_id, token.access_token)
+    # An explicit (re)link is the moment to refresh — drop any cached response
+    # for this ORCID before going out to the network.
+    orcid_api.invalidate_cache(token.orcid_id)
+
+    # Fan out the two ORCID calls — they're independent network round-trips
+    # against the same host. Running them with asyncio.gather roughly halves
+    # the link-advisor latency in production.
+    person, works = await asyncio.gather(
+        orcid_api.fetch_person(token.orcid_id, token.access_token),
+        orcid_api.fetch_works(token.orcid_id, token.access_token),
+    )
     if person and person.affiliation:
         profile.affiliation = person.affiliation[:255]
-
-    works = await orcid_api.fetch_works(token.orcid_id, token.access_token)
 
     # Replace prior publications atomically.
     await session.execute(
@@ -55,7 +64,7 @@ async def link_advisor(
 
     if works:
         titles = [w.title for w in works]
-        embeddings, _backend = embed_texts(titles)
+        embeddings, _backend = await asyncio.to_thread(embed_texts, titles)
         for work, vector in zip(works, embeddings, strict=True):
             session.add(
                 OrcidPublication(
@@ -80,6 +89,7 @@ async def unlink_advisor(session: AsyncSession, advisor_user_id: UUID) -> bool:
     profile = await session.get(AdvisorProfile, advisor_user_id)
     if profile is None or profile.orcid_id is None:
         return False
+    orcid_api.invalidate_cache(profile.orcid_id)
     profile.orcid_id = None
     profile.orcid_access_token_enc = None
     profile.orcid_refresh_token_enc = None

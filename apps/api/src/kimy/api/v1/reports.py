@@ -120,7 +120,7 @@ async def submissions_csv(
         content=blob,
         media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": 'attachment; filename="aurelio-avances.csv"',
+            "Content-Disposition": 'attachment; filename="tesis-avances.csv"',
         },
     )
 
@@ -192,7 +192,7 @@ async def programs_csv(session: SessionDep) -> Response:
         content=blob,
         media_type="text/csv; charset=utf-8",
         headers={
-            "Content-Disposition": 'attachment; filename="aurelio-programas.csv"',
+            "Content-Disposition": 'attachment; filename="tesis-programas.csv"',
         },
     )
 
@@ -210,7 +210,7 @@ async def submissions_pdf(
         content=blob,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": 'attachment; filename="aurelio-avances.pdf"',
+            "Content-Disposition": 'attachment; filename="tesis-avances.pdf"',
         },
     )
 
@@ -222,7 +222,7 @@ async def programs_pdf(session: SessionDep) -> Response:
         content=blob,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": 'attachment; filename="aurelio-programas.pdf"',
+            "Content-Disposition": 'attachment; filename="tesis-programas.pdf"',
         },
     )
 
@@ -235,7 +235,7 @@ async def executive_pdf(session: SessionDep) -> Response:
         content=blob,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": 'attachment; filename="aurelio-ejecutivo.pdf"',
+            "Content-Disposition": 'attachment; filename="tesis-ejecutivo.pdf"',
         },
     )
 
@@ -251,6 +251,6 @@ async def activity_pdf(
         content=blob,
         media_type="application/pdf",
         headers={
-            "Content-Disposition": 'attachment; filename="aurelio-actividad.pdf"',
+            "Content-Disposition": 'attachment; filename="tesis-actividad.pdf"',
         },
     )

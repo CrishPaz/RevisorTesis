@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 
 from kimy.core.deps import SessionDep, require_roles
 from kimy.models.user import UserRole
@@ -13,8 +14,12 @@ router = APIRouter(prefix="/programs", tags=["programs"])
 
 
 @router.get("", response_model=list[ProgramOut])
-async def list_programs(session: SessionDep) -> list[ProgramOut]:
-    items = await programs_service.list_programs(session)
+async def list_programs(
+    session: SessionDep,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> list[ProgramOut]:
+    items = await programs_service.list_programs(session, limit=limit, offset=offset)
     return [ProgramOut.model_validate(p) for p in items]
 
 

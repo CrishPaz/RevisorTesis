@@ -10,11 +10,11 @@ const badgeVariants = cva(
       variant: {
         default: cn(
           "border-transparent bg-zinc-900 text-zinc-50",
-          "dark:border-[color:rgba(196,181,253,0.25)] dark:bg-[rgba(124,58,237,0.25)] dark:text-[color:var(--aurora-cream)]",
+          "dark:border-[color:rgba(125,211,252,0.25)] dark:bg-[rgba(14,165,233,0.25)] dark:text-[color:var(--aurora-cream)]",
         ),
         outline: cn(
           "text-zinc-950 border-zinc-200",
-          "dark:border-[color:rgba(196,181,253,0.3)] dark:text-[color:var(--aurora-cream)]",
+          "dark:border-[color:rgba(125,211,252,0.3)] dark:text-[color:var(--aurora-cream)]",
         ),
         success: cn(
           "border-transparent bg-emerald-100 text-emerald-700",
@@ -30,7 +30,7 @@ const badgeVariants = cva(
         ),
         muted: cn(
           "border-transparent bg-zinc-100 text-zinc-700",
-          "dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.7)] dark:text-[color:var(--aurora-cream-dim)]",
+          "dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.7)] dark:text-[color:var(--aurora-cream-dim)]",
         ),
       },
     },
@@ -39,9 +39,9 @@ const badgeVariants = cva(
 );
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
 export function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />;
+  return <span className={cn(badgeVariants({ variant }), className)} {...props} />;
 }

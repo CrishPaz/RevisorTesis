@@ -11,12 +11,14 @@ import {
 } from "recharts";
 
 import type { ProgramGrade } from "@/lib/api/stats";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 export function ProgramBars({ data }: { data: ProgramGrade[] }) {
+  const t = useTranslations();
   if (data.length === 0) {
     return (
       <p className="py-10 text-center text-sm text-zinc-500">
-        Aún no hay calificaciones IA registradas.
+        {t("dashboard.programBars.empty")}
       </p>
     );
   }
@@ -37,8 +39,8 @@ export function ProgramBars({ data }: { data: ProgramGrade[] }) {
           <Tooltip
             formatter={(v, name) =>
               name === "grade"
-                ? [`${v} / 20`, "Nota IA promedio"]
-                : [String(v), "Avances"]
+                ? [`${v} / 20`, t("dashboard.programBars.tooltipGrade")]
+                : [String(v), t("dashboard.programBars.tooltipSubmissions")]
             }
           />
           <Bar dataKey="grade" fill="#3b82f6" radius={[4, 4, 0, 0]} />

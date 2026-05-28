@@ -2,44 +2,64 @@ import Link from "next/link";
 
 import { AuthSplit } from "@/features/auth/auth-split";
 import { LoginForm } from "@/features/auth/login-form";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = {
-  title: "Iniciar sesión · Aurelio",
-};
+export async function generateMetadata() {
+  const { t } = await getMessages();
+  return {
+    title: t("authForm.login.metaTitle"),
+  };
+}
 
-export default function LoginPage() {
+export default async function LoginPage() {
+  const { t } = await getMessages();
   return (
     <AuthSplit
-      pill="Revisión académica con IA"
+      pill={t("authForm.login.pill")}
       title={
         <>
-          PENSAR. <span className="aurora-gradient-text">ESCRIBIR.</span>
+          {t("authForm.login.titleLine1")}{" "}
+          <span className="aurora-gradient-text">
+            {t("authForm.login.titleLine2")}
+          </span>
           <br />
-          SUSTENTAR.
+          {t("authForm.login.titleLine3")}
         </>
       }
       description={
         <>
-          La plataforma donde la <strong className="text-[color:var(--aurora-cream)]">inteligencia artificial institucional</strong>,
-          la validación de citas y la revisión de tu asesor convergen en una sola sesión de trabajo.
+          {t("authForm.login.descriptionLead")}{" "}
+          <strong className="text-[color:var(--aurora-cream)]">
+            {t("authForm.login.descriptionEmphasis")}
+          </strong>
+          {t("authForm.login.descriptionTail")}
         </>
       }
       highlights={[
-        { label: "Hallazgos IA", value: "6 capas" },
-        { label: "Citas verificadas", value: "CrossRef" },
-        { label: "Asesores", value: "ORCID" },
+        {
+          label: t("authForm.login.highlight.findings.label"),
+          value: t("authForm.login.highlight.findings.value"),
+        },
+        {
+          label: t("authForm.login.highlight.citations.label"),
+          value: t("authForm.login.highlight.citations.value"),
+        },
+        {
+          label: t("authForm.login.highlight.advisors.label"),
+          value: t("authForm.login.highlight.advisors.value"),
+        },
       ]}
-      formTitle="Iniciar sesión"
-      formDescription="Usa tu correo institucional UNT y la contraseña que te entregó la coordinación."
+      formTitle={t("authForm.login.formTitle")}
+      formDescription={t("authForm.login.formDescription")}
       formChildren={<LoginForm />}
       formFooter={
         <>
-          ¿No tienes cuenta?{" "}
+          {t("authForm.login.footerQuestion")}{" "}
           <Link
             href="/register"
             className="font-medium text-[color:var(--aurora-primary-soft)] underline-offset-4 hover:underline"
           >
-            Crear una
+            {t("authForm.login.footerCta")}
           </Link>
         </>
       }

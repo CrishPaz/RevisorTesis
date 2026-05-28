@@ -13,7 +13,7 @@ import { getSession } from "@/lib/auth/session";
 
 const STATE_COOKIE = "kimy.orcid.state";
 
-export const metadata = { title: "Vinculando ORCID… · Aurelio" };
+export const metadata = { title: "Vinculando ORCID… · Tesis" };
 
 export default async function OrcidCallbackPage({
   searchParams,

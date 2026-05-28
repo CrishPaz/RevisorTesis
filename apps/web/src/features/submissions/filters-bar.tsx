@@ -1,14 +1,15 @@
-﻿"use client";
+"use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 
 import {
   PROGRAM_LEVEL_LABELS,
-  SUBMISSION_STATUS_LABELS,
   type Program,
   type SubmissionStatus,
 } from "@/lib/api/types";
+import { useTranslations } from "@/lib/i18n/locale-provider";
+import type { MessageKey } from "@/lib/i18n";
 
 const STATUS_VALUES: SubmissionStatus[] = [
   "draft",
@@ -18,13 +19,22 @@ const STATUS_VALUES: SubmissionStatus[] = [
   "rejected",
 ];
 
+const STATUS_KEYS: Record<SubmissionStatus, MessageKey> = {
+  draft: "submission.status.draft",
+  in_progress: "submission.status.in_progress",
+  observed: "submission.status.observed",
+  approved: "submission.status.approved",
+  rejected: "submission.status.rejected",
+};
+
 const SELECT_CLASS =
-  "flex h-9 rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)] dark:focus-visible:ring-violet-500/40";
+  "flex h-9 rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)] dark:focus-visible:ring-sky-500/40";
 
 export function FiltersBar({ programs }: { programs: Program[] }) {
   const router = useRouter();
   const params = useSearchParams();
   const [pending, start] = useTransition();
+  const t = useTranslations();
 
   function set(key: string, value: string | null) {
     const next = new URLSearchParams(params.toString());
@@ -41,7 +51,7 @@ export function FiltersBar({ programs }: { programs: Program[] }) {
         className={SELECT_CLASS}
         disabled={pending}
       >
-        <option value="">Todos los programas</option>
+        <option value="">{t("submission.filters.allPrograms")}</option>
         {programs.map((p) => (
           <option key={p.id} value={p.id}>
             [{p.code}] {p.name} — {PROGRAM_LEVEL_LABELS[p.level]}
@@ -55,10 +65,10 @@ export function FiltersBar({ programs }: { programs: Program[] }) {
         className={SELECT_CLASS}
         disabled={pending}
       >
-        <option value="">Cualquier estado</option>
+        <option value="">{t("submission.filters.anyStatus")}</option>
         {STATUS_VALUES.map((s) => (
           <option key={s} value={s}>
-            {SUBMISSION_STATUS_LABELS[s]}
+            {t(STATUS_KEYS[s])}
           </option>
         ))}
       </select>
@@ -70,7 +80,7 @@ export function FiltersBar({ programs }: { programs: Program[] }) {
           onChange={(e) => set("fit_alert", e.target.checked ? "true" : null)}
           disabled={pending}
         />
-        Solo ORCID fit alert
+        {t("submission.filters.fitAlert")}
       </label>
 
       {params.toString() ? (
@@ -78,9 +88,9 @@ export function FiltersBar({ programs }: { programs: Program[] }) {
           type="button"
           onClick={() => start(() => router.replace("?"))}
           disabled={pending}
-          className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-[color:rgba(196,181,253,0.12)] dark:text-[color:var(--aurora-cream-dim)] dark:hover:bg-[rgba(124,58,237,0.12)]"
+          className="rounded-md border border-zinc-200 px-2 py-1 text-xs text-zinc-600 hover:bg-zinc-100 dark:border-[color:rgba(125,211,252,0.12)] dark:text-[color:var(--aurora-cream-dim)] dark:hover:bg-[rgba(14,165,233,0.12)]"
         >
-          Limpiar
+          {t("submission.filters.clear")}
         </button>
       ) : null}
     </div>

@@ -129,13 +129,13 @@ const styles = StyleSheet.create({
   emptyText: { color: "#71717a", fontSize: 13, textAlign: "center" },
   card: {
     backgroundColor: "#fff",
-    borderColor: "#e4e4e7",
+    borderColor: "#bae6fd",
     borderWidth: 1,
     borderRadius: 10,
     padding: 14,
     marginBottom: 8,
   },
-  cardPressed: { backgroundColor: "#f4f4f5" },
+  cardPressed: { backgroundColor: "#e0f2fe" },
   row: { flexDirection: "row", gap: 6, flexWrap: "wrap", marginBottom: 8 },
   badge: {
     borderWidth: 1,

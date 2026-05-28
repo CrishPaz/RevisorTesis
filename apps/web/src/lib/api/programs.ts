@@ -1,12 +1,18 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import { apiFetch, extractErrorMessage } from "@/lib/api/client";
 import type { Program, ProgramLevel } from "@/lib/api/types";
 
+// Programs are the same for every authenticated user (admin-only CRUD). The
+// Next fetch cache keys by URL+method+tags (not Authorization header), so the
+// response is safely shared across users. Mutations call updateTag("programs").
 export async function fetchPrograms(): Promise<Program[]> {
-  return apiFetch<Program[]>("/api/v1/programs");
+  return apiFetch<Program[]>("/api/v1/programs", {
+    cache: "force-cache",
+    next: { tags: ["programs"], revalidate: 300 },
+  });
 }
 
 export type CreateProgramResult =
@@ -28,6 +34,7 @@ export async function createProgramAction(
       method: "POST",
       body: { name, code, level },
     });
+    updateTag("programs");
     revalidatePath("/admin/programs");
     revalidatePath("/coordinator/templates");
     return { ok: true, program };
@@ -41,5 +48,6 @@ export async function createProgramAction(
 
 export async function deleteProgramAction(programId: string): Promise<void> {
   await apiFetch(`/api/v1/programs/${programId}`, { method: "DELETE" });
+  updateTag("programs");
   revalidatePath("/admin/programs");
 }

@@ -122,7 +122,11 @@ async def list_for_user(
     status: SubmissionStatus | None = None,
     advisor_id: UUID | None = None,
     fit_alert: bool | None = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> Sequence[Submission]:
+    safe_limit = max(1, min(limit, 500))
+    safe_offset = max(0, offset)
     stmt = (
         select(Submission)
         .options(
@@ -131,6 +135,8 @@ async def list_for_user(
             selectinload(Submission.versions),
         )
         .order_by(Submission.created_at.desc())
+        .limit(safe_limit)
+        .offset(safe_offset)
     )
     if user.role == UserRole.student:
         stmt = stmt.where(Submission.student_id == user.id)

@@ -32,6 +32,8 @@ dependencies = [
     "slowapi>=0.1.9",
     # Expo push notifications (mobile)
     "exponent-server-sdk>=2.0.0",
+    # SMTP email delivery (advisor sends acta PDF by mail)
+    "aiosmtplib>=3.0.0",
 ]
 
 [project.optional-dependencies]

@@ -113,8 +113,15 @@ async def list_submissions(
     status: Annotated[str | None, Query()] = None,
     advisor_id: Annotated[UUID | None, Query()] = None,
     fit_alert: Annotated[bool | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[SubmissionSummary]:
+    from sqlalchemy import func, select as _select
+
+    from kimy.models.ai_evaluation import AIEvaluation
+    from kimy.models.ai_finding import AIFinding
     from kimy.models.submission import SubmissionStatus
+
     parsed_status = SubmissionStatus(status) if status else None
     items = await submissions_service.list_for_user(
         session,
@@ -123,8 +130,49 @@ async def list_submissions(
         status=parsed_status,
         advisor_id=advisor_id,
         fit_alert=fit_alert,
+        limit=limit,
+        offset=offset,
     )
-    return [_to_summary(s) for s in items]
+
+    # Batch-load evaluations + findings count for the latest version of each
+    # submission — used by the advisor comparison view to avoid N+1 queries.
+    latest_version_ids = [
+        v.id
+        for s in items
+        if (v := submissions_service.latest_version(s)) is not None
+    ]
+    eval_by_version: dict[UUID, tuple[float | None, float | None, int]] = {}
+    if latest_version_ids:
+        eval_stmt = (
+            _select(
+                AIEvaluation.version_id,
+                AIEvaluation.decimal_grade,
+                AIEvaluation.total_percentage,
+                func.count(AIFinding.id),
+            )
+            .outerjoin(AIFinding, AIFinding.evaluation_id == AIEvaluation.id)
+            .where(AIEvaluation.version_id.in_(latest_version_ids))
+            .group_by(
+                AIEvaluation.id,
+                AIEvaluation.version_id,
+                AIEvaluation.decimal_grade,
+                AIEvaluation.total_percentage,
+            )
+        )
+        for version_id, grade, pct, fc in (await session.execute(eval_stmt)).all():
+            eval_by_version[version_id] = (grade, pct, fc)
+
+    summaries: list[SubmissionSummary] = []
+    for s in items:
+        summary = _to_summary(s)
+        latest_v = submissions_service.latest_version(s)
+        if latest_v is not None and latest_v.id in eval_by_version:
+            grade, pct, fc = eval_by_version[latest_v.id]
+            summary.latest_grade = grade
+            summary.latest_percentage = pct
+            summary.findings_count = fc
+        summaries.append(summary)
+    return summaries
 
 
 @router.post(
@@ -149,6 +197,95 @@ async def create_submission(
         chapter=payload.chapter,
     )
     return _to_detail(submission)
+
+
+@router.post(
+    "/bulk",
+    response_model=list[SubmissionDetail],
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_roles(UserRole.student))],
+)
+async def create_bulk_submissions(
+    session: SessionDep,
+    user: CurrentUser,
+    background: BackgroundTasks,
+    program_id: Annotated[UUID, Form()],
+    files: Annotated[list[UploadFile], File()],
+    titles: Annotated[list[str] | None, Form()] = None,
+    chapters: Annotated[list[str] | None, Form()] = None,
+) -> list[SubmissionDetail]:
+    """Create N submissions in one call — one per uploaded file.
+
+    Each file becomes its own Submission with its own version + AI evaluation.
+    `titles[i]` / `chapters[i]` are optional and align by index; missing titles
+    default to the filename without extension.
+    """
+    if not files:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="at least one file is required",
+        )
+    program = await programs_service.get_program(session, program_id)
+    if program is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="program not found"
+        )
+
+    created: list[Submission] = []
+    for i, f in enumerate(files):
+        content = await f.read()
+        if len(content) > MAX_UPLOAD_BYTES:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=(
+                    f"file '{f.filename or i}' exceeds "
+                    f"{MAX_UPLOAD_BYTES // (1024 * 1024)}MB limit"
+                ),
+            )
+
+        # Pick the per-file title (fallback to filename without extension).
+        title: str | None = None
+        if titles is not None and i < len(titles) and titles[i].strip():
+            title = titles[i].strip()[:255]
+        if not title:
+            name = f.filename or f"Avance {i + 1}"
+            base = name.rsplit(".", 1)[0] if "." in name else name
+            title = (base.strip() or f"Avance {i + 1}")[:255]
+
+        chapter: str | None = None
+        if chapters is not None and i < len(chapters) and chapters[i].strip():
+            chapter = chapters[i].strip()[:100]
+
+        submission = await submissions_service.create_submission(
+            session,
+            student_id=user.id,
+            program_id=program_id,
+            title=title,
+            chapter=chapter,
+        )
+        try:
+            version = await submissions_service.upload_version(
+                session,
+                submission=submission,
+                filename=f.filename or "upload.bin",
+                content=content,
+                mime_type=f.content_type or "application/octet-stream",
+                comment=None,
+            )
+        except submissions_service.UnsupportedFileTypeError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail=f"{f.filename}: {exc}",
+            ) from exc
+
+        if version.parsing_status == VersionParsingStatus.ai_queued:
+            background.add_task(ai_pipeline.background_runner, version.id)
+
+        refreshed = await submissions_service.get_submission(session, submission.id)
+        if refreshed is not None:
+            created.append(refreshed)
+
+    return [_to_detail(s) for s in created]
 
 
 @router.get("/{submission_id}", response_model=SubmissionDetail)
@@ -307,16 +444,18 @@ async def assign_advisor(
     return _to_detail(refreshed or updated)
 
 
-@router.get("/{submission_id}/report.pdf")
-async def download_acta_pdf(
+async def _build_acta_pdf(
     submission_id: UUID,
-    session: SessionDep,
-    user: CurrentUser,
-):
-    """Generate the acta de revisión for the latest version of `submission_id`."""
+    session,
+    user,
+) -> tuple[bytes, str, Submission]:
+    """Internal helper: returns (pdf_bytes, filename, submission).
+
+    Raises HTTPException with the appropriate status on access/missing-data
+    errors so endpoints can ``await`` it and FastAPI propagates the error.
+    """
     from collections import defaultdict
 
-    from fastapi.responses import Response
     from sqlalchemy import select
     from sqlalchemy.orm import selectinload
 
@@ -349,7 +488,6 @@ async def download_acta_pdf(
     )
     evaluation = (await session.execute(eval_stmt)).scalar_one_or_none()
 
-    # Plagiarism — group by matched_version_id.
     plag_stmt = (
         select(PlagiarismMatch)
         .options(
@@ -380,7 +518,6 @@ async def download_acta_pdf(
             bucket["best_similarity"] = m.similarity
     plagiarism_groups = list(grouped.values())
 
-    # Citation rollup by status.
     cit_stmt = select(Citation).where(Citation.version_id == latest.id)
     citations = list((await session.execute(cit_stmt)).scalars().all())
     citations_summary: dict[str, int] = {}
@@ -389,7 +526,6 @@ async def download_acta_pdf(
             citations_summary.get(c.crossref_status.value, 0) + 1
         )
 
-    # Advisor name + ORCID (best-effort).
     advisor_name: str | None = None
     advisor_orcid: str | None = None
     if submission.advisor_id:
@@ -411,9 +547,108 @@ async def download_acta_pdf(
     )
 
     safe_slug = "".join(c if c.isalnum() else "_" for c in submission.title)[:80] or "acta"
-    filename = f"acta_kimy_{safe_slug}.pdf"
+    filename = f"acta_tesis_{safe_slug}.pdf"
+    return pdf_bytes, filename, submission
+
+
+@router.get("/{submission_id}/report.pdf")
+async def download_acta_pdf(
+    submission_id: UUID,
+    session: SessionDep,
+    user: CurrentUser,
+):
+    """Generate the acta de revisión for the latest version of `submission_id`."""
+    from fastapi.responses import Response
+
+    pdf_bytes, filename, _ = await _build_acta_pdf(submission_id, session, user)
     return Response(
         content=pdf_bytes,
         media_type="application/pdf",
         headers={"Content-Disposition": f'inline; filename="{filename}"'},
     )
+
+
+@router.post(
+    "/{submission_id}/email-report",
+    dependencies=[
+        Depends(require_roles(UserRole.advisor, UserRole.coordinator, UserRole.admin))
+    ],
+)
+async def email_acta_pdf(
+    submission_id: UUID,
+    session: SessionDep,
+    user: CurrentUser,
+    to: Annotated[str, Body(min_length=3, max_length=320)],
+    message: Annotated[str | None, Body(max_length=2000)] = None,
+) -> dict[str, object]:
+    """Generate the acta PDF and send it as an attachment to ``to``.
+
+    Only advisors/coordinators/admins can trigger this. Advisors are further
+    restricted by ``_ensure_can_access`` (only their own assigned submissions).
+    """
+    import re
+
+    from kimy.services.email.sender import (
+        EmailDeliveryError,
+        EmailNotConfiguredError,
+        send_with_attachment,
+    )
+
+    # Minimal RFC-ish email shape check — pydantic email-validator is overkill
+    # here since the address is user input, not a domain entity.
+    if not re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", to.strip()):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Dirección de correo inválida",
+        )
+
+    pdf_bytes, filename, submission = await _build_acta_pdf(
+        submission_id, session, user
+    )
+
+    advisor_label = user.full_name or "tu asesor"
+    subject = f"Acta de revisión — {submission.title}"
+    custom = (message or "").strip()
+    body_text = (
+        f"Hola,\n\n"
+        f"Te comparto el acta de revisión académica del avance "
+        f'"{submission.title}" del estudiante {submission.student.full_name}.\n\n'
+        + (f"Mensaje del asesor:\n{custom}\n\n" if custom else "")
+        + f"Saludos,\n{advisor_label}\nPlataforma Tesis"
+    )
+    body_html = (
+        "<p>Hola,</p>"
+        f"<p>Te comparto el acta de revisión académica del avance "
+        f"<b>{submission.title}</b> del estudiante "
+        f"{submission.student.full_name}.</p>"
+        + (
+            f"<p><b>Mensaje del asesor:</b><br/>"
+            f"{custom.replace(chr(10), '<br/>')}</p>"
+            if custom
+            else ""
+        )
+        + f"<p>Saludos,<br/>{advisor_label}<br/><i>Plataforma Tesis</i></p>"
+    )
+
+    try:
+        await send_with_attachment(
+            to=to.strip(),
+            subject=subject,
+            body_text=body_text,
+            body_html=body_html,
+            attachment_bytes=pdf_bytes,
+            attachment_filename=filename,
+            attachment_mime="application/pdf",
+        )
+    except EmailNotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+    except EmailDeliveryError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"No se pudo enviar el correo: {exc}",
+        ) from exc
+
+    return {"ok": True, "to": to.strip(), "filename": filename}

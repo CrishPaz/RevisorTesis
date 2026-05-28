@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, Query, status
 
 from kimy.core.deps import CurrentUser, SessionDep
 from kimy.schemas.plagiarism import ChunkPreview, PlagiarismMatchOut
@@ -21,6 +21,8 @@ async def list_matches(
     version_id: UUID,
     session: SessionDep,
     user: CurrentUser,
+    limit: int = Query(100, ge=1, le=500),
+    offset: int = Query(0, ge=0),
 ) -> list[PlagiarismMatchOut]:
     submission = await submissions_service.get_submission(session, submission_id)
     if submission is None:
@@ -34,7 +36,9 @@ async def list_matches(
             status_code=status.HTTP_404_NOT_FOUND, detail="version not found"
         )
 
-    matches = await scanner.list_matches_for_version(session, version_id)
+    matches = await scanner.list_matches_for_version(
+        session, version_id, limit=limit, offset=offset
+    )
     out: list[PlagiarismMatchOut] = []
     for m in matches:
         matched_submission = m.matched_version.submission

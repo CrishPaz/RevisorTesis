@@ -9,6 +9,7 @@ function will be wrapped by a Celery task.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import TYPE_CHECKING
@@ -75,14 +76,17 @@ async def _run_inner(session: AsyncSession, version_id: UUID) -> None:
         else None
     )
 
-    # Re-extract text from the stored file.
+    # Re-extract text from the stored file. read_bytes + the docx/pdf parsers
+    # are blocking; push them to a worker thread so we don't stall the loop.
     path = storage.resolve(version.storage_path)
     raw_text = ""
     if path.is_file():
-        content = path.read_bytes()
+        def _read_and_extract() -> str:
+            content = path.read_bytes()
+            return extract(version.original_filename, content, version.mime_type).full_text
+
         try:
-            extracted = extract(version.original_filename, content, version.mime_type)
-            raw_text = extracted.full_text
+            raw_text = await asyncio.to_thread(_read_and_extract)
         except Exception as exc:  # noqa: BLE001
             logger.warning("re-extract failed for %s: %s", version_id, exc)
 

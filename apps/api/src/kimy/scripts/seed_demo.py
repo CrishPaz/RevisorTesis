@@ -67,7 +67,7 @@ def _user(email: str, full_name: str, role: UserRole, password: str = "Demo1234"
 
 USERS: list[dict[str, Any]] = [
     # Admin (single)
-    _user("admin@unt.edu.pe", "Administrador Aurelio", UserRole.admin, "Admin1234"),
+    _user("admin@unt.edu.pe", "Administrador Tesis", UserRole.admin, "Admin1234"),
     # Coordinator
     _user("coordinador@unt.edu.pe", "Lucía Vargas", UserRole.coordinator, "Coord1234"),
     # Advisors (3 — varied affiliation, only one with ORCID)

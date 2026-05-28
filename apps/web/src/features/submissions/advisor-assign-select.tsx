@@ -1,9 +1,10 @@
-﻿"use client";
+"use client";
 
 import { useTransition } from "react";
 
 import { assignAdvisorAction } from "@/lib/api/submissions";
 import type { AdvisorOption } from "@/lib/api/submissions";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 export function AdvisorAssignSelect({
   submissionId,
@@ -15,6 +16,7 @@ export function AdvisorAssignSelect({
   advisors: AdvisorOption[];
 }) {
   const [pending, start] = useTransition();
+  const t = useTranslations();
 
   function onChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const value = e.target.value || null;
@@ -28,13 +30,15 @@ export function AdvisorAssignSelect({
       value={currentAdvisorId ?? ""}
       onChange={onChange}
       disabled={pending}
-      className="flex h-9 min-w-[14rem] rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:opacity-50 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)] dark:focus-visible:ring-violet-500/40"
+      className="flex h-9 min-w-[14rem] rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:opacity-50 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)] dark:focus-visible:ring-sky-500/40"
     >
-      <option value="">— Sin asignar —</option>
+      <option value="">{t("submission.toolbar.advisor.unassigned")}</option>
       {advisors.map((a) => (
         <option key={a.id} value={a.id}>
           {a.full_name}
-          {a.orcid_linked ? "  ·  ORCID" : "  ·  sin ORCID"}
+          {a.orcid_linked
+            ? t("submission.toolbar.advisor.orcid")
+            : t("submission.toolbar.advisor.noOrcid")}
         </option>
       ))}
     </select>

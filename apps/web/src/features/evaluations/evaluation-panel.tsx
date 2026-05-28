@@ -10,11 +10,29 @@ import {
 } from "@/components/ui/card";
 import { EvaluationSummary } from "@/features/evaluations/evaluation-summary";
 import { FindingCard } from "@/features/evaluations/finding-card";
-import { SEVERITY_LABELS, type AIEvaluation, type AIFinding, type FindingSeverity } from "@/lib/api/types";
+import {
+  type AIEvaluation,
+  type AIFinding,
+  type FindingSeverity,
+} from "@/lib/api/types";
+import { getMessages } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n";
 
-const SEVERITY_ORDER: FindingSeverity[] = ["critical", "major", "minor", "suggestion"];
+const SEVERITY_ORDER: FindingSeverity[] = [
+  "critical",
+  "major",
+  "minor",
+  "suggestion",
+];
 
-export function EvaluationPanel({
+const SEVERITY_KEY: Record<FindingSeverity, MessageKey> = {
+  critical: "panel.evaluation.severity.critical",
+  major: "panel.evaluation.severity.major",
+  minor: "panel.evaluation.severity.minor",
+  suggestion: "panel.evaluation.severity.suggestion",
+};
+
+export async function EvaluationPanel({
   evaluation,
   emptyMessage,
   renderFindingExtra,
@@ -23,11 +41,13 @@ export function EvaluationPanel({
   emptyMessage: string;
   renderFindingExtra?: (f: AIFinding) => ReactNode;
 }) {
+  const { t } = await getMessages();
+
   if (!evaluation) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Evaluación de IA</CardTitle>
+          <CardTitle>{t("panel.evaluation.empty.title")}</CardTitle>
           <CardDescription>{emptyMessage}</CardDescription>
         </CardHeader>
       </Card>
@@ -45,10 +65,11 @@ export function EvaluationPanel({
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Resumen ejecutivo</CardTitle>
+          <CardTitle>{t("panel.evaluation.summary.title")}</CardTitle>
           <CardDescription>
-            Calificación automatizada Aurelio · {evaluation.findings.length}{" "}
-            hallazgos
+            {t("panel.evaluation.summary.description", {
+              count: evaluation.findings.length,
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -73,10 +94,12 @@ export function EvaluationPanel({
                         : "outline"
                 }
               >
-                {SEVERITY_LABELS[sev]}
+                {t(SEVERITY_KEY[sev])}
               </Badge>
               <span className="text-zinc-500">
-                {items.length} hallazgo{items.length === 1 ? "" : "s"}
+                {items.length === 1
+                  ? t("panel.evaluation.findingsOne", { count: items.length })
+                  : t("panel.evaluation.findingsMany", { count: items.length })}
               </span>
             </h2>
             <div className="space-y-3">

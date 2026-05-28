@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,9 @@ import { ProgramBars } from "@/features/dashboard/program-bars";
 import { StatusDonut } from "@/features/dashboard/status-donut";
 import { fetchStatsActivity, fetchStatsOverview } from "@/lib/api/stats";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Dashboard · Aurelio" };
+export const metadata = { title: "Dashboard · Tesis" };
 
 function formatPct(v: number | null) {
   return v === null ? "—" : `${v.toFixed(1)}%`;
@@ -31,6 +32,7 @@ export default async function CoordinatorDashboard() {
     redirect(`/${user.role}`);
   }
 
+  const { t, locale } = await getMessages();
   const [stats, activity] = await Promise.all([
     fetchStatsOverview(),
     fetchStatsActivity(15),
@@ -41,12 +43,13 @@ export default async function CoordinatorDashboard() {
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl space-y-1">
           <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
-            Coordinador
+            {t("dashboard.coordinator.role")}
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t("dashboard.coordinator.title")}
+          </h1>
           <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
-            KPIs agregados de todos los programas. Descarga el reporte ejecutivo
-            para imprimir o compartir con la dirección de escuela.
+            {t("dashboard.coordinator.subtitle")}
           </p>
         </div>
         <Button asChild size="lg">
@@ -55,49 +58,56 @@ export default async function CoordinatorDashboard() {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Reporte ejecutivo (PDF)
+            {t("dashboard.coordinator.executiveReport")}
           </a>
         </Button>
       </header>
 
       <section className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Avances totales" value={stats.total_submissions} />
         <KpiCard
-          label="Nota IA promedio"
+          label={t("kpi.totalSubmissions")}
+          value={stats.total_submissions}
+        />
+        <KpiCard
+          label={t("kpi.avgGrade")}
           value={formatGrade(stats.avg_ai_grade)}
-          helper={`/ 20 · ${formatPct(stats.avg_ai_percentage)} de cumplimiento`}
+          helper={t("dashboard.coordinator.kpiAvgGradeHelper", {
+            pct: formatPct(stats.avg_ai_percentage),
+          })}
         />
         <KpiCard
-          label="Concordancia IA-Humano"
+          label={t("dashboard.coordinator.kpiConcordance")}
           value={formatPct(stats.ai_human_concordance_pct)}
-          helper="% de hallazgos aceptados sin modificar"
+          helper={t("dashboard.coordinator.kpiConcordanceHelper")}
         />
         <KpiCard
-          label="Asesores con ORCID"
+          label={t("dashboard.coordinator.kpiAdvisorsOrcid")}
           value={stats.total_advisors_with_orcid}
         />
         <KpiCard
-          label="Alertas de plagio"
+          label={t("dashboard.coordinator.kpiPlagiarism")}
           value={stats.plagiarism_alerts}
           tone={stats.plagiarism_alerts > 0 ? "danger" : "default"}
-          helper="similitud ≥ 85% intra-programa"
+          helper={t("dashboard.coordinator.kpiPlagiarismHelper")}
         />
         <KpiCard
-          label="Alertas ORCID fit"
+          label={t("dashboard.coordinator.kpiFitAlerts")}
           value={stats.advisor_fit_alerts}
           tone={stats.advisor_fit_alerts > 0 ? "warning" : "default"}
-          helper="asesor↔tesis poco afín"
+          helper={t("dashboard.coordinator.kpiFitAlertsHelper")}
         />
         <KpiCard
-          label="Bajo cumplimiento"
+          label={t("dashboard.coordinator.kpiLowCompliance")}
           value={stats.low_compliance_submissions}
           tone={stats.low_compliance_submissions > 0 ? "warning" : "default"}
-          helper="< 60% en evaluación IA"
+          helper={t("dashboard.coordinator.kpiLowComplianceHelper")}
         />
         <KpiCard
-          label="Citas problemáticas"
+          label={t("dashboard.coordinator.kpiCitationsProblematic")}
           value={stats.citations_problematic}
-          helper={`de ${stats.citations_total} extraídas`}
+          helper={t("dashboard.coordinator.kpiCitationsProblematicHelper", {
+            total: stats.citations_total,
+          })}
           tone={stats.citations_problematic > 0 ? "warning" : "default"}
         />
       </section>
@@ -105,9 +115,11 @@ export default async function CoordinatorDashboard() {
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Distribución por estado</CardTitle>
+            <CardTitle>
+              {t("dashboard.coordinator.statusDistributionTitle")}
+            </CardTitle>
             <CardDescription>
-              Cantidad de avances en cada etapa del flujo.
+              {t("dashboard.coordinator.statusDistributionDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -117,9 +129,11 @@ export default async function CoordinatorDashboard() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Nota IA promedio por programa</CardTitle>
+            <CardTitle>
+              {t("dashboard.coordinator.programGradesTitle")}
+            </CardTitle>
             <CardDescription>
-              Promedio de la última evaluación IA por avance, sobre 20.
+              {t("dashboard.coordinator.programGradesDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -130,14 +144,18 @@ export default async function CoordinatorDashboard() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Actividad reciente</CardTitle>
+          <CardTitle>{t("dashboard.coordinator.recentActivityTitle")}</CardTitle>
           <CardDescription>
-            Últimos {activity.length} eventos relevantes.
+            {t("dashboard.coordinator.recentActivityDescription", {
+              count: activity.length,
+            })}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {activity.length === 0 ? (
-            <p className="text-sm text-zinc-500">Sin actividad reciente.</p>
+            <p className="text-sm text-zinc-500">
+              {t("dashboard.coordinator.recentActivityEmpty")}
+            </p>
           ) : (
             <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {activity.map((a, idx) => (
@@ -158,7 +176,9 @@ export default async function CoordinatorDashboard() {
                       {a.kind.replace(/_/g, " ")}
                     </Badge>
                     <span className="text-xs text-zinc-500">
-                      {new Date(a.occurred_at).toLocaleString("es-PE")}
+                      {new Date(a.occurred_at).toLocaleString(
+                        locale === "en" ? "en-US" : "es-PE",
+                      )}
                     </span>
                   </div>
                 </li>

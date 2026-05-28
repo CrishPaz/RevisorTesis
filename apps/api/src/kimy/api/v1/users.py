@@ -1,13 +1,14 @@
 """Admin user management — list / create / patch."""
 from __future__ import annotations
 
+import asyncio
 from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 
-from kimy.core.deps import CurrentUser, SessionDep, require_roles
+from kimy.core.deps import CurrentUser, SessionDep, invalidate_user_cache, require_roles
 from kimy.core.security import hash_password
 from kimy.models.user import User, UserRole
 from kimy.schemas.users import AdminUserCreate, AdminUserOut, AdminUserPatch
@@ -26,9 +27,15 @@ async def list_users(
     role: Annotated[UserRole | None, Query()] = None,
     q: Annotated[str | None, Query(description="search in email/full_name")] = None,
     is_active: Annotated[bool | None, Query()] = None,
-    limit: Annotated[int, Query(ge=1, le=500)] = 200,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[AdminUserOut]:
-    stmt = select(User).order_by(User.created_at.desc()).limit(limit)
+    stmt = (
+        select(User)
+        .order_by(User.created_at.desc())
+        .limit(limit)
+        .offset(offset)
+    )
     if role is not None:
         stmt = stmt.where(User.role == role)
     if is_active is not None:
@@ -96,8 +103,11 @@ async def patch_user(
     if payload.is_active is not None:
         user.is_active = payload.is_active
     if payload.password is not None:
-        user.password_hash = hash_password(payload.password)
+        user.password_hash = await asyncio.to_thread(hash_password, payload.password)
 
     await session.commit()
     await session.refresh(user)
+    # Force the next request from this user to re-check the DB so role /
+    # is_active changes propagate immediately instead of waiting out the TTL.
+    invalidate_user_cache(user.id)
     return AdminUserOut.model_validate(user)

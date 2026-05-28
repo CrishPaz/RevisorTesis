@@ -9,6 +9,7 @@ ourselves (cheaper than going through deps).
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from uuid import UUID
@@ -72,6 +73,11 @@ async def _persist(
         logger.exception("audit log persistence failed")
 
 
+# Keep strong references to in-flight audit tasks so the event loop doesn't
+# garbage-collect them mid-write. Tasks remove themselves when done.
+_pending_audit_tasks: set[asyncio.Task] = set()
+
+
 class AuditMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
         if (
@@ -85,14 +91,21 @@ class AuditMiddleware(BaseHTTPMiddleware):
         duration_ms = int((time.perf_counter() - started) * 1000)
 
         actor_id, actor_role = _extract_actor(request.headers.get("authorization"))
-        await _persist(
-            actor_id=actor_id,
-            actor_role=actor_role,
-            method=request.method,
-            path=request.url.path,
-            status_code=response.status_code,
-            duration_ms=duration_ms,
-            ip=request.client.host if request.client else None,
-            user_agent=request.headers.get("user-agent"),
+        # True fire-and-forget: schedule the INSERT and let the request return
+        # immediately. Previously we awaited the write here, adding the audit
+        # round-trip to every POST/PUT/PATCH/DELETE response time.
+        task = asyncio.create_task(
+            _persist(
+                actor_id=actor_id,
+                actor_role=actor_role,
+                method=request.method,
+                path=request.url.path,
+                status_code=response.status_code,
+                duration_ms=duration_ms,
+                ip=request.client.host if request.client else None,
+                user_agent=request.headers.get("user-agent"),
+            )
         )
+        _pending_audit_tasks.add(task)
+        task.add_done_callback(_pending_audit_tasks.discard)
         return response

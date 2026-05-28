@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 
 import { apiFetch, extractErrorMessage } from "@/lib/api/client";
 
@@ -45,16 +45,27 @@ export type ModelPreference = {
   use_fine_tuned: boolean;
 };
 
+// Fine-tuning stats and model preference are shared across admins and change
+// rarely — safe to cache with longer TTLs. updateTag("ft-stats") on mutations.
 export async function fetchFineTuningStats(): Promise<FineTuningStats> {
-  return apiFetch<FineTuningStats>("/api/v1/admin/fine-tuning/stats");
+  return apiFetch<FineTuningStats>("/api/v1/admin/fine-tuning/stats", {
+    cache: "force-cache",
+    next: { tags: ["ft-stats"], revalidate: 60 },
+  });
 }
 
 export async function fetchFineTuningJobs(): Promise<FineTuningJob[]> {
-  return apiFetch<FineTuningJob[]>("/api/v1/admin/fine-tuning/jobs");
+  return apiFetch<FineTuningJob[]>("/api/v1/admin/fine-tuning/jobs", {
+    cache: "force-cache",
+    next: { tags: ["ft-jobs"], revalidate: 15 },
+  });
 }
 
 export async function fetchModelPreference(): Promise<ModelPreference> {
-  return apiFetch<ModelPreference>("/api/v1/admin/settings/ai-model");
+  return apiFetch<ModelPreference>("/api/v1/admin/settings/ai-model", {
+    cache: "force-cache",
+    next: { tags: ["ft-model"], revalidate: 300 },
+  });
 }
 
 export type CreateJobResult =
@@ -66,6 +77,8 @@ export async function createFineTuningJobAction(): Promise<CreateJobResult> {
     const job = await apiFetch<FineTuningJob>("/api/v1/admin/fine-tuning/jobs", {
       method: "POST",
     });
+    updateTag("ft-stats");
+    updateTag("ft-jobs");
     revalidatePath("/admin/fine-tuning");
     return { ok: true, job };
   } catch (err) {
@@ -84,6 +97,7 @@ export async function submitJobAction(
       `/api/v1/admin/fine-tuning/jobs/${jobId}/submit`,
       { method: "POST" },
     );
+    updateTag("ft-jobs");
     revalidatePath("/admin/fine-tuning");
     return { ok: true, job };
   } catch (err) {
@@ -102,6 +116,7 @@ export async function refreshJobAction(
       `/api/v1/admin/fine-tuning/jobs/${jobId}/refresh`,
       { method: "POST" },
     );
+    updateTag("ft-jobs");
     revalidatePath("/admin/fine-tuning");
     return { ok: true, job };
   } catch (err) {
@@ -124,6 +139,7 @@ export async function updateModelPreferenceAction(
       "/api/v1/admin/settings/ai-model",
       { method: "PUT", body: patch },
     );
+    updateTag("ft-model");
     revalidatePath("/admin/fine-tuning");
     revalidatePath("/admin/settings");
     revalidatePath("/admin");

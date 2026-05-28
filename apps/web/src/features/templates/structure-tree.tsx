@@ -13,7 +13,7 @@ function Node({ section }: { section: TemplateSection }) {
         </span>
       </div>
       {section.children.length > 0 ? (
-        <ul className="ml-4 space-y-1 border-l border-zinc-200 pl-4 dark:border-[color:rgba(196,181,253,0.12)]">
+        <ul className="ml-4 space-y-1 border-l border-zinc-200 pl-4 dark:border-[color:rgba(125,211,252,0.12)]">
           {section.children.map((child, idx) => (
             <Node
               key={`${child.title}-${idx}`}

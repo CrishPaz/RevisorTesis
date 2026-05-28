@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import {
@@ -8,18 +8,22 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { SubmissionForm } from "@/features/submissions/submission-form";
+import { BulkSubmissionForm } from "@/features/submissions/bulk-submission-form";
 import { fetchPrograms } from "@/lib/api/programs";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Nuevo avance · Aurelio" };
+export const metadata = { title: "Subir avances · Tesis" };
 
 export default async function NewSubmissionPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "student") redirect(`/${user.role}`);
 
-  const programs = await fetchPrograms();
+  const [programs, { t }] = await Promise.all([
+    fetchPrograms(),
+    getMessages(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -28,28 +32,28 @@ export default async function NewSubmissionPage() {
           href="/student/submissions"
           className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-[color:var(--aurora-cream)]"
         >
-          ← Volver a mis avances
+          {t("submission.list.backToList")}
         </Link>
       </div>
 
       <header className="space-y-1">
-        <h1 className="text-3xl font-semibold tracking-tight">Nuevo avance</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {t("submission.new.title")}
+        </h1>
         <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
-          Primero crea la entrada del avance. En el detalle podrás subir las
-          versiones (.docx o .pdf).
+          {t("submission.new.subtitle")}
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Datos del avance</CardTitle>
+          <CardTitle>{t("submission.new.card.title")}</CardTitle>
           <CardDescription>
-            Si tu programa tiene un documento patrón activo, se asociará
-            automáticamente.
+            {t("submission.new.card.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <SubmissionForm programs={programs} />
+          <BulkSubmissionForm programs={programs} />
         </CardContent>
       </Card>
     </div>

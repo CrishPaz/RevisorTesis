@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,15 +15,17 @@ import { fetchPrograms } from "@/lib/api/programs";
 import { fetchStatsOverview } from "@/lib/api/stats";
 import { fetchAdminUsers } from "@/lib/api/users";
 import { getCurrentUser } from "@/lib/auth/session";
-import { ROLE_LABELS } from "@/lib/auth/types";
+import { ROLE_LABEL_KEYS } from "@/lib/auth/types";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Administrador · Aurelio" };
+export const metadata = { title: "Administrador · Tesis" };
 
 export default async function AdminHome() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "admin") redirect(`/${user.role}`);
 
+  const { t } = await getMessages();
   const [overview, users, programs, ftStats, pref] = await Promise.all([
     fetchStatsOverview(),
     fetchAdminUsers({ limit: 500 }),
@@ -47,26 +49,35 @@ export default async function AdminHome() {
     <div className="space-y-8">
       <header className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
-          {ROLE_LABELS.admin}
+          {t(ROLE_LABEL_KEYS.admin)}
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Hola, {user.full_name.split(" ")[0]}
+          {t("home.greeting", { name: user.full_name.split(" ")[0] })}
         </h1>
         <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
-          Panorama del sistema en este momento.
+          {t("dashboard.admin.subtitle")}
         </p>
       </header>
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Usuarios" value={totalUsers} helper={`${programs.length} programas`} />
-        <KpiCard label="Avances totales" value={overview.total_submissions} />
         <KpiCard
-          label="Alertas plagio"
+          label={t("dashboard.admin.kpiUsers")}
+          value={totalUsers}
+          helper={t("dashboard.admin.kpiUsersHelper", {
+            count: programs.length,
+          })}
+        />
+        <KpiCard
+          label={t("kpi.totalSubmissions")}
+          value={overview.total_submissions}
+        />
+        <KpiCard
+          label={t("dashboard.admin.kpiPlagiarismAlerts")}
           value={overview.plagiarism_alerts}
           tone={overview.plagiarism_alerts > 0 ? "warning" : "default"}
         />
         <KpiCard
-          label="Alertas ORCID"
+          label={t("dashboard.admin.kpiOrcidAlerts")}
           value={overview.advisor_fit_alerts}
           tone={overview.advisor_fit_alerts > 0 ? "warning" : "default"}
         />
@@ -75,15 +86,17 @@ export default async function AdminHome() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardTitle>Distribución por rol</CardTitle>
-            <CardDescription>Cuentas activas e inactivas combinadas.</CardDescription>
+            <CardTitle>{t("dashboard.admin.roleDistributionTitle")}</CardTitle>
+            <CardDescription>
+              {t("dashboard.admin.roleDistributionDescription")}
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <ul className="space-y-2 text-sm">
               {(["student", "advisor", "coordinator", "admin"] as const).map(
                 (r) => (
                   <li key={r} className="flex items-center justify-between">
-                    <span>{ROLE_LABELS[r]}</span>
+                    <span>{t(ROLE_LABEL_KEYS[r])}</span>
                     <Badge variant="muted">{usersByRole[r] ?? 0}</Badge>
                   </li>
                 ),
@@ -91,7 +104,7 @@ export default async function AdminHome() {
             </ul>
             <p className="mt-3 text-xs text-zinc-500">
               <Link href="/admin/users" className="underline">
-                Gestionar usuarios →
+                {t("dashboard.admin.manageUsers")}
               </Link>
             </p>
           </CardContent>
@@ -99,39 +112,41 @@ export default async function AdminHome() {
 
         <Card>
           <CardHeader>
-            <CardTitle>IA y fine-tuning</CardTitle>
+            <CardTitle>{t("dashboard.admin.fineTuningTitle")}</CardTitle>
             <CardDescription>
-              Modelo en producción y avance del entrenamiento personalizado.
+              {t("dashboard.admin.fineTuningDescription")}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span>Modelo activo</span>
+              <span>{t("dashboard.admin.activeModel")}</span>
               <Badge variant={pref.use_fine_tuned ? "success" : "muted"}>
                 {activeModel}
               </Badge>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span>Feedback elegible</span>
+              <span>{t("dashboard.admin.eligibleFeedback")}</span>
               <Badge variant="muted">
                 {ftStats.total_eligible} / {ftStats.min_examples_threshold}
               </Badge>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span>Tuning programático</span>
+              <span>{t("dashboard.admin.programmaticTuning")}</span>
               <Badge
                 variant={ftStats.provider_available ? "success" : "warning"}
               >
-                {ftStats.provider_available ? "sí" : "no"}
+                {ftStats.provider_available
+                  ? t("dashboard.admin.yes")
+                  : t("dashboard.admin.no")}
               </Badge>
             </div>
             <p className="mt-2 text-xs text-zinc-500">
               <Link href="/admin/settings" className="underline">
-                Ajustar configuración →
+                {t("dashboard.admin.adjustSettings")}
               </Link>{" "}
               ·{" "}
               <Link href="/admin/fine-tuning" className="underline">
-                Ver pipeline →
+                {t("dashboard.admin.viewPipeline")}
               </Link>
             </p>
           </CardContent>
@@ -140,28 +155,28 @@ export default async function AdminHome() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Accesos rápidos</CardTitle>
+          <CardTitle>{t("dashboard.admin.quickAccessTitle")}</CardTitle>
         </CardHeader>
         <CardContent>
           <ul className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
             <li>
               <Link href="/admin/users" className="underline">
-                Crear o desactivar usuarios
+                {t("dashboard.admin.quickCreateUsers")}
               </Link>
             </li>
             <li>
               <Link href="/admin/programs" className="underline">
-                Administrar programas académicos
+                {t("dashboard.admin.quickManagePrograms")}
               </Link>
             </li>
             <li>
               <Link href="/admin/settings" className="underline">
-                Configuración del sistema
+                {t("dashboard.admin.quickSettings")}
               </Link>
             </li>
             <li>
               <Link href="/admin/fine-tuning" className="underline">
-                Pipeline de fine-tuning
+                {t("dashboard.admin.quickFineTuning")}
               </Link>
             </li>
           </ul>

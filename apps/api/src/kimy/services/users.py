@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from uuid import UUID
 
 from sqlalchemy import select
@@ -44,9 +45,12 @@ async def create_user(
     if await get_user_by_email(session, normalized_email):
         raise EmailAlreadyExistsError(normalized_email)
 
+    # Argon2 hashing is CPU-bound (~100ms at default cost). Pushing it to a
+    # worker thread keeps the event loop responsive for every other request.
+    password_hash = await asyncio.to_thread(hash_password, password)
     user = User(
         email=normalized_email,
-        password_hash=hash_password(password),
+        password_hash=password_hash,
         full_name=full_name.strip(),
         role=role,
         is_active=True,
@@ -71,7 +75,12 @@ async def authenticate(
     password: str,
 ) -> User:
     user = await get_user_by_email(session, email.lower().strip())
-    if not user or not verify_password(password, user.password_hash):
+    if user is None:
+        raise InvalidCredentialsError
+    # Argon2 verify is CPU-bound (~50ms). Off-thread it so a single login
+    # attempt doesn't stall every other request on the same worker.
+    ok = await asyncio.to_thread(verify_password, password, user.password_hash)
+    if not ok:
         raise InvalidCredentialsError
     if not user.is_active:
         raise InactiveUserError

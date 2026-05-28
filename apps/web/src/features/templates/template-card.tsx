@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import Link from "next/link";
 import { useTransition } from "react";
@@ -9,7 +9,9 @@ import {
   activateTemplateAction,
   deleteTemplateAction,
 } from "@/lib/api/templates";
-import { TEMPLATE_STATUS_LABELS, type TemplateSummary } from "@/lib/api/types";
+import { type TemplateSummary } from "@/lib/api/types";
+import { useTranslations } from "@/lib/i18n/locale-provider";
+import type { MessageKey } from "@/lib/i18n";
 
 function statusVariant(status: TemplateSummary["parsing_status"]) {
   switch (status) {
@@ -23,6 +25,13 @@ function statusVariant(status: TemplateSummary["parsing_status"]) {
   }
 }
 
+const STATUS_KEY: Record<TemplateSummary["parsing_status"], MessageKey> = {
+  pending: "panel.templates.status.pending",
+  processing: "panel.templates.status.processing",
+  parsed: "panel.templates.status.parsed",
+  failed: "panel.templates.status.failed",
+};
+
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -30,6 +39,7 @@ function formatSize(bytes: number) {
 }
 
 export function TemplateCard({ template }: { template: TemplateSummary }) {
+  const t = useTranslations();
   const [pending, start] = useTransition();
 
   function onActivate() {
@@ -39,24 +49,27 @@ export function TemplateCard({ template }: { template: TemplateSummary }) {
   }
 
   function onDelete() {
-    if (!confirm(`¿Eliminar la plantilla "${template.title}"?`)) return;
+    if (
+      !confirm(t("panel.templates.confirmDelete", { title: template.title }))
+    )
+      return;
     start(async () => {
       await deleteTemplateAction(template.id);
     });
   }
 
   return (
-    <li className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)]">
+    <li className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)]">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant={statusVariant(template.parsing_status)}>
-              {TEMPLATE_STATUS_LABELS[template.parsing_status]}
+              {t(STATUS_KEY[template.parsing_status])}
             </Badge>
             {template.is_active ? (
-              <Badge variant="default">Activa</Badge>
+              <Badge variant="default">{t("panel.templates.active")}</Badge>
             ) : (
-              <Badge variant="outline">Inactiva</Badge>
+              <Badge variant="outline">{t("panel.templates.inactive")}</Badge>
             )}
             <Badge variant="muted">v{template.version}</Badge>
           </div>
@@ -79,7 +92,7 @@ export function TemplateCard({ template }: { template: TemplateSummary }) {
               onClick={onActivate}
               disabled={pending}
             >
-              Activar
+              {t("panel.templates.activate")}
             </Button>
           ) : null}
           <Button
@@ -89,7 +102,7 @@ export function TemplateCard({ template }: { template: TemplateSummary }) {
             onClick={onDelete}
             disabled={pending}
           >
-            Eliminar
+            {t("panel.templates.delete")}
           </Button>
         </div>
       </div>

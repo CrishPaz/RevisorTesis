@@ -18,7 +18,7 @@ export function ProgramRow({ program }: { program: Program }) {
   }
 
   return (
-    <li className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white p-4 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)]">
+    <li className="flex items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-white p-4 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)]">
       <div className="min-w-0">
         <div className="flex items-center gap-2">
           <Badge variant="outline">{program.code}</Badge>

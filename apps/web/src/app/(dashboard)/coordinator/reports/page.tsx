@@ -18,9 +18,10 @@ import {
 } from "@/lib/api/reports";
 import { fetchStatsOverview } from "@/lib/api/stats";
 import { getCurrentUser } from "@/lib/auth/session";
-import { SUBMISSION_STATUS_LABELS, type SubmissionStatus } from "@/lib/api/types";
+import { type SubmissionStatus } from "@/lib/api/types";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Reportes · Aurelio" };
+export const metadata = { title: "Reportes · Tesis" };
 
 const STATUSES: SubmissionStatus[] = [
   "draft",
@@ -30,11 +31,12 @@ const STATUSES: SubmissionStatus[] = [
   "rejected",
 ];
 
-function formatGrade(v: number | null) {
-  return v === null ? "—" : v.toFixed(2);
+// Use placeholder dash for grade/percent.
+function formatGrade(v: number | null, dash: string) {
+  return v === null ? dash : v.toFixed(2);
 }
-function formatPct(v: number | null) {
-  return v === null ? "—" : `${v.toFixed(1)}%`;
+function formatPct(v: number | null, dash: string) {
+  return v === null ? dash : `${v.toFixed(1)}%`;
 }
 
 type SearchParams = Promise<{
@@ -53,6 +55,9 @@ export default async function CoordinatorReportsPage({
     redirect(`/${user.role}`);
   }
 
+  const { t } = await getMessages();
+  const dash = t("panel.common.dash");
+
   const params = await searchParams;
   const programFilter = params.program_id ?? "";
   const statusFilter = params.status ?? "";
@@ -67,7 +72,6 @@ export default async function CoordinatorReportsPage({
     fetchPrograms(),
   ]);
 
-  // Build the export query string mirroring the current filters.
   const exportQs = new URLSearchParams();
   if (programFilter) exportQs.set("program_id", programFilter);
   if (statusFilter) exportQs.set("status", statusFilter);
@@ -75,7 +79,6 @@ export default async function CoordinatorReportsPage({
   const submissionsCsvHref = `/api/reports/submissions.csv${exportSuffix}`;
   const submissionsPdfHref = `/api/reports/submissions.pdf${exportSuffix}`;
 
-  // Subset of submissions with alerts — useful "needs attention" table.
   const flagged = report.rows.filter(
     (r) =>
       r.advisor_fit_alert ||
@@ -87,12 +90,13 @@ export default async function CoordinatorReportsPage({
       <header className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div className="max-w-2xl space-y-1">
           <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
-            Coordinador
+            {t("panel.common.coordinator")}
           </p>
-          <h1 className="text-3xl font-semibold tracking-tight">Reportes</h1>
+          <h1 className="text-3xl font-semibold tracking-tight">
+            {t("panel.coordinator.reports.title")}
+          </h1>
           <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
-            Vista consolidada de avances, métricas por programa y exportaciones
-            listas para auditoría o reuniones con la escuela.
+            {t("panel.coordinator.reports.subtitle")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -102,7 +106,7 @@ export default async function CoordinatorReportsPage({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Reporte ejecutivo (PDF)
+              {t("panel.coordinator.reports.executive")}
             </a>
           </Button>
           <Button asChild variant="outline">
@@ -111,49 +115,53 @@ export default async function CoordinatorReportsPage({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Actividad (PDF)
+              {t("panel.coordinator.reports.activity")}
             </a>
           </Button>
         </div>
       </header>
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Avances" value={overview.total_submissions} />
         <KpiCard
-          label="Nota IA promedio"
-          value={formatGrade(overview.avg_ai_grade)}
-          helper={`/ 20 · ${formatPct(overview.avg_ai_percentage)}`}
+          label={t("panel.coordinator.reports.kpi.submissions")}
+          value={overview.total_submissions}
         />
         <KpiCard
-          label="Bajo cumplimiento"
+          label={t("panel.coordinator.reports.kpi.avgGrade")}
+          value={formatGrade(overview.avg_ai_grade, dash)}
+          helper={t("panel.coordinator.reports.kpi.avgGradeHelper", {
+            value: formatPct(overview.avg_ai_percentage, dash),
+          })}
+        />
+        <KpiCard
+          label={t("panel.coordinator.reports.kpi.lowCompliance")}
           value={overview.low_compliance_submissions}
           tone={overview.low_compliance_submissions > 0 ? "warning" : "default"}
-          helper="< 60% en IA"
+          helper={t("panel.coordinator.reports.kpi.lowComplianceHelper")}
         />
         <KpiCard
-          label="Alertas críticas"
+          label={t("panel.coordinator.reports.kpi.criticalAlerts")}
           value={overview.plagiarism_alerts + overview.advisor_fit_alerts}
           tone={
             overview.plagiarism_alerts + overview.advisor_fit_alerts > 0
               ? "danger"
               : "default"
           }
-          helper="plagio + ORCID fit"
+          helper={t("panel.coordinator.reports.kpi.criticalAlertsHelper")}
         />
       </section>
 
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <CardTitle>Rollup por programa</CardTitle>
+            <CardTitle>{t("panel.coordinator.reports.rollup.title")}</CardTitle>
             <CardDescription>
-              Métricas agregadas por programa. Incluye avances totales, nota IA
-              promedio y alertas activas.
+              {t("panel.coordinator.reports.rollup.description")}
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">
-              <a href="/api/reports/programs.csv">CSV</a>
+              <a href="/api/reports/programs.csv">{t("panel.common.csv")}</a>
             </Button>
             <Button asChild size="sm">
               <a
@@ -161,7 +169,7 @@ export default async function CoordinatorReportsPage({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                PDF
+                {t("panel.common.pdf")}
               </a>
             </Button>
           </div>
@@ -169,26 +177,38 @@ export default async function CoordinatorReportsPage({
         <CardContent>
           {rollup.rows.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-[color:var(--aurora-cream-dim)]">
-              Aún no hay programas con avances registrados.
+              {t("panel.coordinator.reports.rollup.empty")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-left text-xs font-medium uppercase tracking-widest text-zinc-500 dark:border-[color:rgba(196,181,253,0.12)] dark:text-[color:var(--aurora-cream-dim)]">
-                    <th className="py-2 pr-4">Código</th>
-                    <th className="py-2 pr-4">Programa</th>
-                    <th className="py-2 pr-4 text-right">Avances</th>
-                    <th className="py-2 pr-4 text-right">Nota IA</th>
-                    <th className="py-2 pr-4 text-right">Plagio</th>
-                    <th className="py-2 text-right">ORCID fit</th>
+                  <tr className="border-b border-zinc-200 text-left text-xs font-medium uppercase tracking-widest text-zinc-500 dark:border-[color:rgba(125,211,252,0.12)] dark:text-[color:var(--aurora-cream-dim)]">
+                    <th className="py-2 pr-4">
+                      {t("panel.coordinator.reports.rollup.code")}
+                    </th>
+                    <th className="py-2 pr-4">
+                      {t("panel.coordinator.reports.rollup.program")}
+                    </th>
+                    <th className="py-2 pr-4 text-right">
+                      {t("panel.coordinator.reports.rollup.submissions")}
+                    </th>
+                    <th className="py-2 pr-4 text-right">
+                      {t("panel.coordinator.reports.rollup.aiGrade")}
+                    </th>
+                    <th className="py-2 pr-4 text-right">
+                      {t("panel.coordinator.reports.rollup.plagiarism")}
+                    </th>
+                    <th className="py-2 text-right">
+                      {t("panel.coordinator.reports.rollup.orcidFit")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {rollup.rows.map((r) => (
                     <tr
                       key={r.program_id}
-                      className="border-b border-zinc-100 last:border-0 dark:border-[color:rgba(196,181,253,0.08)]"
+                      className="border-b border-zinc-100 last:border-0 dark:border-[color:rgba(125,211,252,0.08)]"
                     >
                       <td className="py-2 pr-4">
                         <Badge variant="outline">{r.program_code}</Badge>
@@ -198,7 +218,7 @@ export default async function CoordinatorReportsPage({
                         {r.submissions_count}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
-                        {formatGrade(r.average_grade)}
+                        {formatGrade(r.average_grade, dash)}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
                         {r.plagiarism_alerts > 0 ? (
@@ -228,14 +248,18 @@ export default async function CoordinatorReportsPage({
       <Card>
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <CardTitle>Listado de avances ({report.total})</CardTitle>
+            <CardTitle>
+              {t("panel.coordinator.reports.list.title", {
+                count: report.total,
+              })}
+            </CardTitle>
             <CardDescription>
-              Aplica filtros y descarga el reporte con la selección actual.
+              {t("panel.coordinator.reports.list.description")}
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button asChild variant="outline" size="sm">
-              <a href={submissionsCsvHref}>CSV</a>
+              <a href={submissionsCsvHref}>{t("panel.common.csv")}</a>
             </Button>
             <Button asChild size="sm">
               <a
@@ -243,7 +267,7 @@ export default async function CoordinatorReportsPage({
                 target="_blank"
                 rel="noopener noreferrer"
               >
-                PDF
+                {t("panel.common.pdf")}
               </a>
             </Button>
           </div>
@@ -253,9 +277,11 @@ export default async function CoordinatorReportsPage({
             <select
               name="program_id"
               defaultValue={programFilter}
-              className="h-9 rounded-md border border-zinc-200 bg-white px-2 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)]"
+              className="h-9 rounded-md border border-zinc-200 bg-white px-2 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)]"
             >
-              <option value="">Todos los programas</option>
+              <option value="">
+                {t("panel.coordinator.reports.filter.allPrograms")}
+              </option>
               {programs.map((p) => (
                 <option key={p.id} value={p.id}>
                   [{p.code}] {p.name}
@@ -265,48 +291,66 @@ export default async function CoordinatorReportsPage({
             <select
               name="status"
               defaultValue={statusFilter}
-              className="h-9 rounded-md border border-zinc-200 bg-white px-2 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)]"
+              className="h-9 rounded-md border border-zinc-200 bg-white px-2 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)]"
             >
-              <option value="">Todos los estados</option>
+              <option value="">
+                {t("panel.coordinator.reports.filter.allStatuses")}
+              </option>
               {STATUSES.map((s) => (
                 <option key={s} value={s}>
-                  {SUBMISSION_STATUS_LABELS[s]}
+                  {s}
                 </option>
               ))}
             </select>
             <Button type="submit" size="sm">
-              Filtrar
+              {t("panel.common.filter")}
             </Button>
             {programFilter || statusFilter ? (
               <Button asChild variant="ghost" size="sm">
-                <Link href="/coordinator/reports">Limpiar</Link>
+                <Link href="/coordinator/reports">
+                  {t("panel.common.clear")}
+                </Link>
               </Button>
             ) : null}
           </form>
 
           {report.rows.length === 0 ? (
             <p className="text-sm text-zinc-500 dark:text-[color:var(--aurora-cream-dim)]">
-              No hay avances que coincidan con los filtros.
+              {t("panel.coordinator.reports.list.empty")}
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead>
-                  <tr className="border-b border-zinc-200 text-left text-xs font-medium uppercase tracking-widest text-zinc-500 dark:border-[color:rgba(196,181,253,0.12)] dark:text-[color:var(--aurora-cream-dim)]">
-                    <th className="py-2 pr-3">Programa</th>
-                    <th className="py-2 pr-3">Título</th>
-                    <th className="py-2 pr-3">Estudiante</th>
-                    <th className="py-2 pr-3">Asesor</th>
-                    <th className="py-2 pr-3">Estado</th>
-                    <th className="py-2 pr-3 text-right">Nota IA</th>
-                    <th className="py-2 text-right">Alertas</th>
+                  <tr className="border-b border-zinc-200 text-left text-xs font-medium uppercase tracking-widest text-zinc-500 dark:border-[color:rgba(125,211,252,0.12)] dark:text-[color:var(--aurora-cream-dim)]">
+                    <th className="py-2 pr-3">
+                      {t("panel.coordinator.reports.table.program")}
+                    </th>
+                    <th className="py-2 pr-3">
+                      {t("panel.coordinator.reports.table.title")}
+                    </th>
+                    <th className="py-2 pr-3">
+                      {t("panel.coordinator.reports.table.student")}
+                    </th>
+                    <th className="py-2 pr-3">
+                      {t("panel.coordinator.reports.table.advisor")}
+                    </th>
+                    <th className="py-2 pr-3">
+                      {t("panel.coordinator.reports.table.status")}
+                    </th>
+                    <th className="py-2 pr-3 text-right">
+                      {t("panel.coordinator.reports.table.aiGrade")}
+                    </th>
+                    <th className="py-2 text-right">
+                      {t("panel.coordinator.reports.table.alerts")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {report.rows.map((r) => (
                     <tr
                       key={r.submission_id}
-                      className="border-b border-zinc-100 last:border-0 dark:border-[color:rgba(196,181,253,0.08)]"
+                      className="border-b border-zinc-100 last:border-0 dark:border-[color:rgba(125,211,252,0.08)]"
                     >
                       <td className="py-2 pr-3">
                         <Badge variant="outline">{r.program_code}</Badge>
@@ -323,27 +367,28 @@ export default async function CoordinatorReportsPage({
                       </td>
                       <td className="py-2 pr-3 text-xs">{r.student_name}</td>
                       <td className="py-2 pr-3 text-xs">
-                        {r.advisor_name ?? "—"}
+                        {r.advisor_name ?? dash}
                       </td>
                       <td className="py-2 pr-3">
-                        <Badge variant="muted">
-                          {SUBMISSION_STATUS_LABELS[r.status as SubmissionStatus] ??
-                            r.status}
-                        </Badge>
+                        <Badge variant="muted">{r.status}</Badge>
                       </td>
                       <td className="py-2 pr-3 text-right tabular-nums">
                         {r.decimal_grade !== null
                           ? r.decimal_grade.toFixed(2)
-                          : "—"}
+                          : dash}
                       </td>
                       <td className="py-2 text-right">
                         <div className="flex flex-wrap justify-end gap-1">
                           {r.advisor_fit_alert ? (
-                            <Badge variant="warning">ORCID</Badge>
+                            <Badge variant="warning">
+                              {t("panel.coordinator.reports.alert.orcid")}
+                            </Badge>
                           ) : null}
                           {r.total_percentage !== null &&
                           r.total_percentage < 60 ? (
-                            <Badge variant="destructive">bajo</Badge>
+                            <Badge variant="destructive">
+                              {t("panel.coordinator.reports.alert.low")}
+                            </Badge>
                           ) : null}
                         </div>
                       </td>
@@ -359,9 +404,13 @@ export default async function CoordinatorReportsPage({
       {flagged.length > 0 ? (
         <Card>
           <CardHeader>
-            <CardTitle>Necesitan atención ({flagged.length})</CardTitle>
+            <CardTitle>
+              {t("panel.coordinator.reports.attention.title", {
+                count: flagged.length,
+              })}
+            </CardTitle>
             <CardDescription>
-              Avances con afinidad ORCID baja o cumplimiento IA &lt; 60%.
+              {t("panel.coordinator.reports.attention.description")}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -369,7 +418,7 @@ export default async function CoordinatorReportsPage({
               {flagged.map((r) => (
                 <li
                   key={r.submission_id}
-                  className="flex flex-col gap-1 rounded-md border border-zinc-200 p-3 dark:border-[color:rgba(196,181,253,0.12)] sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-1 rounded-md border border-zinc-200 p-3 dark:border-[color:rgba(125,211,252,0.12)] sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
                     <p className="truncate font-medium">{r.title}</p>
@@ -379,12 +428,16 @@ export default async function CoordinatorReportsPage({
                   </div>
                   <div className="flex flex-wrap gap-1">
                     {r.advisor_fit_alert ? (
-                      <Badge variant="warning">ORCID fit</Badge>
+                      <Badge variant="warning">
+                        {t("panel.coordinator.reports.attention.orcidFit")}
+                      </Badge>
                     ) : null}
                     {r.total_percentage !== null &&
                     r.total_percentage < 60 ? (
                       <Badge variant="destructive">
-                        IA {r.total_percentage.toFixed(0)}%
+                        {t("panel.coordinator.reports.attention.ai", {
+                          value: r.total_percentage.toFixed(0),
+                        })}
                       </Badge>
                     ) : null}
                   </div>

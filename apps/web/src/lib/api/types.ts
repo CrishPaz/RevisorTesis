@@ -139,6 +139,10 @@ export type SubmissionSummary = {
   latest_version_status: VersionParsingStatus | null;
   advisor_fit_score: number | null;
   advisor_fit_alert: boolean;
+  // AI evaluation rollup (latest version) — used by advisor comparison view.
+  latest_grade: number | null;
+  latest_percentage: number | null;
+  findings_count: number | null;
 };
 
 export type SubmissionDetail = SubmissionSummary & {

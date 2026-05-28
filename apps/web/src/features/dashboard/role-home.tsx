@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import {
   Card,
@@ -7,8 +7,9 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ROLE_LABELS, type UserRole } from "@/lib/auth/types";
+import { ROLE_LABEL_KEYS, type UserRole } from "@/lib/auth/types";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMessages } from "@/lib/i18n/server";
 
 type Props = {
   expectedRole: UserRole;
@@ -23,44 +24,58 @@ export async function RoleHome({ expectedRole, description, upcoming }: Props) {
     redirect(`/${user.role}`);
   }
 
+  const { t, locale } = await getMessages();
+
   return (
     <div className="space-y-8">
       <header className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
-          {ROLE_LABELS[user.role]}
+          {t(ROLE_LABEL_KEYS[user.role])}
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Hola, {user.full_name.split(" ")[0]}
+          {t("home.greeting", { name: user.full_name.split(" ")[0] })}
         </h1>
-        <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">{description}</p>
+        <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
+          {description}
+        </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Tu sesión</CardTitle>
+          <CardTitle>{t("dashboard.roleHome.sessionTitle")}</CardTitle>
           <CardDescription>
-            Información obtenida desde el backend Aurelio.
+            {t("dashboard.roleHome.sessionDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm">
-            <dt className="text-zinc-500">ID</dt>
+            <dt className="text-zinc-500">{t("dashboard.roleHome.fieldId")}</dt>
             <dd className="font-mono">{user.id}</dd>
-            <dt className="text-zinc-500">Correo</dt>
+            <dt className="text-zinc-500">
+              {t("dashboard.roleHome.fieldEmail")}
+            </dt>
             <dd>{user.email}</dd>
-            <dt className="text-zinc-500">Rol</dt>
-            <dd>{ROLE_LABELS[user.role]}</dd>
-            <dt className="text-zinc-500">Creado</dt>
-            <dd>{new Date(user.created_at).toLocaleString("es-PE")}</dd>
+            <dt className="text-zinc-500">
+              {t("dashboard.roleHome.fieldRole")}
+            </dt>
+            <dd>{t(ROLE_LABEL_KEYS[user.role])}</dd>
+            <dt className="text-zinc-500">
+              {t("dashboard.roleHome.fieldCreated")}
+            </dt>
+            <dd>
+              {new Date(user.created_at).toLocaleString(
+                locale === "en" ? "en-US" : "es-PE",
+              )}
+            </dd>
           </dl>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Próximas funcionalidades</CardTitle>
+          <CardTitle>{t("dashboard.roleHome.upcomingTitle")}</CardTitle>
           <CardDescription>
-            Lo que llegará a este panel en las siguientes fases.
+            {t("dashboard.roleHome.upcomingDescription")}
           </CardDescription>
         </CardHeader>
         <CardContent>

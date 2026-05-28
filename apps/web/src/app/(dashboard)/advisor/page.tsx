@@ -1,4 +1,4 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { Badge } from "@/components/ui/badge";
@@ -13,15 +13,17 @@ import { KpiCard } from "@/features/dashboard/kpi-card";
 import { SubmissionRow } from "@/features/submissions/submission-row";
 import { fetchSubmissions } from "@/lib/api/submissions";
 import { getCurrentUser } from "@/lib/auth/session";
-import { ROLE_LABELS } from "@/lib/auth/types";
+import { ROLE_LABEL_KEYS } from "@/lib/auth/types";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Asesor · Aurelio" };
+export const metadata = { title: "Asesor · Tesis" };
 
 export default async function AdvisorHome() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.role !== "advisor") redirect(`/${user.role}`);
 
+  const { t } = await getMessages();
   const reviews = await fetchSubmissions();
 
   const counts = reviews.reduce<Record<string, number>>((acc, s) => {
@@ -40,40 +42,50 @@ export default async function AdvisorHome() {
     <div className="space-y-8">
       <header className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
-          {ROLE_LABELS.advisor}
+          {t(ROLE_LABEL_KEYS.advisor)}
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Hola, {user.full_name.split(" ")[0]}
+          {t("home.greeting", { name: user.full_name.split(" ")[0] })}
         </h1>
         <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
-          Aquí tienes el resumen de los avances que te corresponden revisar.
+          {t("home.subtitle.advisor")}
         </p>
       </header>
 
       <section className="grid grid-cols-2 gap-4 md:grid-cols-4">
-        <KpiCard label="Asignados" value={reviews.length} />
-        <KpiCard label="Pendientes" value={pending} tone={pending > 0 ? "warning" : "default"} />
-        <KpiCard label="Aprobados" value={approved} tone={approved > 0 ? "success" : "default"} />
+        <KpiCard label={t("kpi.assigned")} value={reviews.length} />
         <KpiCard
-          label="Alerta ORCID fit"
+          label={t("dashboard.advisor.kpiPending")}
+          value={pending}
+          tone={pending > 0 ? "warning" : "default"}
+        />
+        <KpiCard
+          label={t("kpi.approved")}
+          value={approved}
+          tone={approved > 0 ? "success" : "default"}
+        />
+        <KpiCard
+          label={t("dashboard.advisor.kpiFitAlerts")}
           value={fitAlerts}
           tone={fitAlerts > 0 ? "warning" : "default"}
-          helper="afinidad temática baja"
+          helper={t("dashboard.advisor.kpiFitAlertsHelper")}
         />
       </section>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between gap-2">
           <div>
-            <CardTitle>Por revisar</CardTitle>
-            <CardDescription>Avances activos asignados a ti.</CardDescription>
+            <CardTitle>{t("dashboard.advisor.toReviewTitle")}</CardTitle>
+            <CardDescription>
+              {t("dashboard.advisor.toReviewDescription")}
+            </CardDescription>
           </div>
           <Badge variant="muted">{upcoming.length}</Badge>
         </CardHeader>
         <CardContent>
           {upcoming.length === 0 ? (
             <p className="text-sm text-zinc-500">
-              No hay avances pendientes. Cuando un estudiante suba una nueva versión, aparecerá aquí.
+              {t("dashboard.advisor.empty")}
             </p>
           ) : (
             <ul className="space-y-2">
@@ -89,11 +101,11 @@ export default async function AdvisorHome() {
           )}
           <p className="mt-3 text-xs text-zinc-500">
             <Link href="/advisor/reviews" className="underline">
-              Ver todas las revisiones →
+              {t("dashboard.common.viewAllReviews")}
             </Link>{" "}
             ·{" "}
             <Link href="/advisor/profile" className="underline">
-              Mi perfil ORCID →
+              {t("dashboard.advisor.viewProfile")}
             </Link>
           </p>
         </CardContent>

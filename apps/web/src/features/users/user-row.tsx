@@ -64,7 +64,7 @@ export function UserRow({
   }
 
   return (
-    <li className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)] sm:flex-row sm:items-center sm:justify-between">
+    <li className="flex flex-col gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)] sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <span className="truncate font-medium" title={user.email}>
@@ -92,7 +92,7 @@ export function UserRow({
           value={user.role}
           onChange={onRoleChange}
           disabled={pending || isSelf}
-          className="h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(11,14,42,0.55)] disabled:opacity-50"
+          className="h-9 rounded-md border border-zinc-200 bg-white px-2 text-sm dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(6,18,31,0.55)] disabled:opacity-50"
           title={isSelf ? "No puedes cambiar tu propio rol" : undefined}
         >
           {ROLES.map((r) => (

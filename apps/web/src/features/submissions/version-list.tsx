@@ -1,5 +1,6 @@
-﻿import { Badge } from "@/components/ui/badge";
+import { Badge } from "@/components/ui/badge";
 import { VersionStatusBadge } from "@/features/submissions/status-badge";
+import { getMessages } from "@/lib/i18n/server";
 import type { SubmissionVersionSummary } from "@/lib/api/types";
 
 function formatSize(bytes: number) {
@@ -8,17 +9,20 @@ function formatSize(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function VersionList({
+export async function VersionList({
   versions,
   downloadBase,
 }: {
   versions: SubmissionVersionSummary[];
   downloadBase: string;
 }) {
+  const { t, locale } = await getMessages();
+  const dateLocale = locale === "es" ? "es-PE" : "en-US";
+
   if (versions.length === 0) {
     return (
       <p className="text-sm text-zinc-500">
-        Aún no hay versiones. Sube la primera con el formulario de arriba.
+        {t("submission.versionList.empty")}
       </p>
     );
   }
@@ -27,7 +31,7 @@ export function VersionList({
       {versions.map((v) => (
         <li
           key={v.id}
-          className="rounded-md border border-zinc-200 p-3 dark:border-[color:rgba(196,181,253,0.12)]"
+          className="rounded-md border border-zinc-200 p-3 dark:border-[color:rgba(125,211,252,0.12)]"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -43,9 +47,11 @@ export function VersionList({
               </p>
               <p className="text-xs text-zinc-500">
                 {formatSize(v.file_size_bytes)}
-                {v.page_count > 0 ? ` · ${v.page_count} páginas` : ""}
+                {v.page_count > 0
+                  ? ` · ${t("submission.versionList.pages", { n: v.page_count })}`
+                  : ""}
                 {" · "}
-                {new Date(v.created_at).toLocaleString("es-PE")}
+                {new Date(v.created_at).toLocaleString(dateLocale)}
               </p>
               {v.comment ? (
                 <p className="mt-2 text-sm text-zinc-700 dark:text-[color:var(--aurora-cream-dim)]">
@@ -64,7 +70,7 @@ export function VersionList({
               rel="noopener noreferrer"
               className="text-sm font-medium text-zinc-900 underline-offset-4 hover:underline dark:text-[color:var(--aurora-cream)]"
             >
-              Descargar
+              {t("submission.versionList.download")}
             </a>
           </div>
         </li>

@@ -14,6 +14,7 @@ import { CitationsPanel } from "@/features/citations/citations-panel";
 import { EvaluationPanel } from "@/features/evaluations/evaluation-panel";
 import { FindingActions } from "@/features/evaluations/finding-actions";
 import { PlagiarismPanel } from "@/features/plagiarism/matches-panel";
+import { EmailReportForm } from "@/features/submissions/email-report-form";
 import {
   SubmissionStatusBadge,
   VersionStatusBadge,
@@ -24,8 +25,9 @@ import { fetchEvaluation } from "@/lib/api/evaluations";
 import { fetchPlagiarismMatches } from "@/lib/api/plagiarism";
 import { fetchSubmission } from "@/lib/api/submissions";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Revisar avance · Aurelio" };
+export const metadata = { title: "Revisar avance · Tesis" };
 
 function formatSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;
@@ -53,6 +55,8 @@ export default async function AdvisorReviewDetail({
     throw err;
   }
 
+  const { t } = await getMessages();
+
   const latestVersion = submission.versions[0];
   const [evaluation, plagiarismMatches, citations] = latestVersion
     ? await Promise.all([
@@ -79,7 +83,7 @@ export default async function AdvisorReviewDetail({
           href="/advisor/reviews"
           className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-[color:var(--aurora-cream)]"
         >
-          ← Volver a mis revisiones
+          {t("submission.advisorDetail.back")}
         </Link>
       </div>
 
@@ -105,15 +109,21 @@ export default async function AdvisorReviewDetail({
               </p>
             ) : null}
           </div>
-          <Button asChild variant="outline">
-            <a
-              href={`/api/submissions/${submission.id}/report.pdf`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Descargar acta PDF
-            </a>
-          </Button>
+          <div className="flex flex-col items-end gap-2">
+            <Button asChild variant="outline">
+              <a
+                href={`/api/submissions/${submission.id}/report.pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {t("submission.advisorDetail.downloadActa")}
+              </a>
+            </Button>
+            <EmailReportForm
+              submissionId={submission.id}
+              defaultTo={submission.student.email}
+            />
+          </div>
         </div>
       </header>
 
@@ -121,7 +131,7 @@ export default async function AdvisorReviewDetail({
         <div className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>Documento</CardTitle>
+              <CardTitle>{t("submission.advisorDetail.document.title")}</CardTitle>
               <CardDescription>
                 {latestVersion ? (
                   <>
@@ -130,7 +140,7 @@ export default async function AdvisorReviewDetail({
                     {formatSize(latestVersion.file_size_bytes)}
                   </>
                 ) : (
-                  "El estudiante aún no ha subido versiones."
+                  t("submission.advisorDetail.document.noVersion")
                 )}
               </CardDescription>
             </CardHeader>
@@ -140,13 +150,12 @@ export default async function AdvisorReviewDetail({
                   {isPdf && downloadHref ? (
                     <iframe
                       src={downloadHref}
-                      className="h-[600px] w-full rounded-md border border-zinc-200 dark:border-[color:rgba(196,181,253,0.12)]"
+                      className="h-[600px] w-full rounded-md border border-zinc-200 dark:border-[color:rgba(125,211,252,0.12)]"
                       title={latestVersion.original_filename}
                     />
                   ) : (
-                    <p className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-[color:rgba(196,181,253,0.12)] dark:bg-[rgba(20,22,62,0.55)]/60 dark:text-[color:var(--aurora-cream-dim)]">
-                      Vista previa no disponible para documentos Word. Descarga
-                      el archivo para revisarlo.
+                    <p className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-700 dark:border-[color:rgba(125,211,252,0.12)] dark:bg-[rgba(11,31,51,0.55)]/60 dark:text-[color:var(--aurora-cream-dim)]">
+                      {t("submission.advisorDetail.document.docxFallback")}
                     </p>
                   )}
                   {downloadHref ? (
@@ -156,7 +165,9 @@ export default async function AdvisorReviewDetail({
                         target="_blank"
                         rel="noopener noreferrer"
                       >
-                        Descargar {latestVersion.original_filename}
+                        {t("submission.advisorDetail.document.download", {
+                          filename: latestVersion.original_filename,
+                        })}
                       </a>
                     </Button>
                   ) : null}
@@ -171,8 +182,10 @@ export default async function AdvisorReviewDetail({
             evaluation={evaluation}
             emptyMessage={
               latestVersion
-                ? `Aún no hay evaluación. Estado: ${latestVersion.parsing_status}.`
-                : "Sin versión subida — no hay nada que evaluar."
+                ? t("submission.advisorDetail.eval.pending", {
+                    status: latestVersion.parsing_status,
+                  })
+                : t("submission.advisorDetail.eval.noVersion")
             }
             renderFindingExtra={(f) => (
               <FindingActions submissionId={submission.id} finding={f} />
@@ -183,12 +196,12 @@ export default async function AdvisorReviewDetail({
 
       <PlagiarismPanel
         matches={plagiarismMatches}
-        emptyMessage="No se detectaron similitudes significativas (≥85%) con otros avances del programa."
+        emptyMessage={t("submission.advisorDetail.plagiarism.empty")}
       />
 
       <CitationsPanel
         citations={citations}
-        emptyMessage="No se detectaron referencias bibliográficas en el avance (o la sección no se identificó). Asegúrate de incluir una sección 'Referencias' al final."
+        emptyMessage={t("submission.advisorDetail.citations.empty")}
       />
     </div>
   );

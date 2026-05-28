@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { decodeJwt } from "jose";
 
 import { readAccessToken } from "@/lib/auth/cookies";
@@ -19,7 +20,9 @@ export type Session = {
   accessToken: string;
 };
 
-export async function getSession(): Promise<Session | null> {
+// `cache()` deduplicates within a single render — layout + page both call
+// getSession()/getCurrentUser() but the backend is only hit once per request.
+export const getSession = cache(async function getSessionImpl(): Promise<Session | null> {
   const token = await readAccessToken();
   if (!token) return null;
   try {
@@ -36,9 +39,9 @@ export async function getSession(): Promise<Session | null> {
   } catch {
     return null;
   }
-}
+});
 
-export async function getCurrentUser(): Promise<CurrentUser | null> {
+export const getCurrentUser = cache(async function getCurrentUserImpl(): Promise<CurrentUser | null> {
   const session = await getSession();
   if (!session) return null;
   try {
@@ -51,4 +54,4 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   } catch {
     return null;
   }
-}
+});

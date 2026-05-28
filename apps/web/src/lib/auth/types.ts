@@ -35,6 +35,16 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   admin: "Administrador",
 };
 
+// i18n keys parallel to ROLE_LABELS — use these from client components via
+// `useTranslations()`. Server components without i18n context can fall back
+// to ROLE_LABELS (Spanish only).
+export const ROLE_LABEL_KEYS = {
+  student: "role.student",
+  advisor: "role.advisor",
+  coordinator: "role.coordinator",
+  admin: "role.admin",
+} as const satisfies Record<UserRole, string>;
+
 export const ROLE_HOMES: Record<UserRole, string> = {
   student: "/student",
   advisor: "/advisor",

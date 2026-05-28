@@ -4,7 +4,8 @@ import { useActionState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 import { registerAction, type AuthActionResult } from "@/lib/auth/actions";
-import { ROLE_LABELS, type UserRole } from "@/lib/auth/types";
+import { ROLE_LABEL_KEYS, type UserRole } from "@/lib/auth/types";
+import { useTranslations } from "@/lib/i18n/locale-provider";
 
 const ROLE_OPTIONS: UserRole[] = ["student", "advisor", "coordinator"];
 
@@ -18,6 +19,7 @@ function fieldLabel(text: string) {
 
 export function RegisterForm() {
   const router = useRouter();
+  const t = useTranslations();
   const [state, formAction, pending] = useActionState<
     AuthActionResult | null,
     FormData
@@ -33,7 +35,9 @@ export function RegisterForm() {
   return (
     <form action={formAction} className="space-y-5">
       <div className="space-y-1.5">
-        <label htmlFor="full_name">{fieldLabel("Nombre completo")}</label>
+        <label htmlFor="full_name">
+          {fieldLabel(t("authForm.register.fullNameLabel"))}
+        </label>
         <input
           id="full_name"
           name="full_name"
@@ -46,7 +50,9 @@ export function RegisterForm() {
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="email">{fieldLabel("Correo institucional")}</label>
+        <label htmlFor="email">
+          {fieldLabel(t("authForm.register.emailLabel"))}
+        </label>
         <input
           id="email"
           name="email"
@@ -59,7 +65,9 @@ export function RegisterForm() {
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="password">{fieldLabel("Contraseña")}</label>
+        <label htmlFor="password">
+          {fieldLabel(t("authForm.register.passwordLabel"))}
+        </label>
         <input
           id="password"
           name="password"
@@ -70,12 +78,14 @@ export function RegisterForm() {
           className="aurora-input flex h-11 w-full rounded-md px-3.5 text-sm"
         />
         <p className="text-xs text-[color:var(--aurora-cream-dim)]">
-          Mínimo 8 caracteres.
+          {t("authForm.register.passwordHint")}
         </p>
       </div>
 
       <div className="space-y-1.5">
-        <label htmlFor="role">{fieldLabel("Rol")}</label>
+        <label htmlFor="role">
+          {fieldLabel(t("authForm.register.roleLabel"))}
+        </label>
         <select
           id="role"
           name="role"
@@ -88,7 +98,7 @@ export function RegisterForm() {
               value={role}
               className="bg-[color:var(--aurora-base-2)] text-[color:var(--aurora-cream)]"
             >
-              {ROLE_LABELS[role]}
+              {t(ROLE_LABEL_KEYS[role])}
             </option>
           ))}
         </select>
@@ -106,10 +116,10 @@ export function RegisterForm() {
         className="aurora-btn-primary flex h-11 w-full items-center justify-center gap-2 rounded-md text-sm font-semibold tracking-wide disabled:cursor-not-allowed"
       >
         {pending ? (
-          "Creando cuenta…"
+          t("authForm.register.submitting")
         ) : (
           <>
-            Crear cuenta
+            {t("authForm.register.submit")}
             <span aria-hidden>→</span>
           </>
         )}

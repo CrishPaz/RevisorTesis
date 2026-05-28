@@ -7,12 +7,13 @@ threshold are persisted in `plagiarism_matches` for advisor review.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -62,20 +63,29 @@ async def scan_version(
     if submission is None:
         return [], "none"
 
-    # 1. Extract text and chunk it
+    # 1. Extract text and chunk it. Document extraction + chunking are CPU-bound
+    # and blocking; offload to the default thread pool so we don't stall the
+    # event loop.
     path = storage.resolve(version.storage_path)
     if not path.is_file():
         logger.warning("plagiarism: file missing for version %s", version_id)
         return [], "none"
 
-    extracted = extract(version.original_filename, path.read_bytes(), version.mime_type)
-    chunks = chunk_document(extracted)
+    def _extract_and_chunk() -> list[Any]:
+        raw = path.read_bytes()
+        ext = extract(version.original_filename, raw, version.mime_type)
+        return chunk_document(ext)
+
+    chunks = await asyncio.to_thread(_extract_and_chunk)
     if not chunks:
         logger.info("plagiarism: no chunks produced for version %s", version_id)
         return [], "none"
 
-    # 2. Embed
-    vectors, embedder_name = embed_texts([c.text for c in chunks])
+    # 2. Embed. The hashed-BoW embedder is pure-CPU and synchronous; push it
+    # to a thread so a long document doesn't block the loop.
+    vectors, embedder_name = await asyncio.to_thread(
+        embed_texts, [c.text for c in chunks]
+    )
 
     # 3. Wipe any prior chunks for idempotency, then persist new ones
     await session.execute(
@@ -101,67 +111,88 @@ async def scan_version(
     await session.flush()
 
     # 4. Cosine search against chunks from OTHER submissions in the same program.
+    # Single batched query with LATERAL JOIN: for each source chunk we get its
+    # top-3 nearest neighbors above the similarity threshold in ONE round-trip,
+    # leveraging the pgvector index per LATERAL iteration. Previously we ran one
+    # query per source chunk (N+1 with N = number of chunks per document).
+    source_ids = [c.id for c in persisted_chunks]
     matches_by_version: dict[UUID, list[PlagiarismMatch]] = {}
 
-    for chunk_row in persisted_chunks:
-        # pgvector cosine distance: 1 - cosine_similarity. Smaller is more similar.
-        stmt = (
-            select(
-                DocumentChunk,
-                DocumentChunk.embedding.cosine_distance(chunk_row.embedding).label(
-                    "distance"
-                ),
-            )
-            .join(SubmissionVersion, SubmissionVersion.id == DocumentChunk.version_id)
-            .join(Submission, Submission.id == SubmissionVersion.submission_id)
-            .where(
-                Submission.program_id == submission.program_id,
-                Submission.id != submission.id,  # exclude same submission (older versions)
-                DocumentChunk.embedding.cosine_distance(chunk_row.embedding)
-                <= COSINE_DISTANCE_THRESHOLD,
-            )
-            .order_by("distance")
-            .limit(3)
+    if source_ids:
+        lateral_sql = text(
+            """
+            SELECT
+                s.id AS source_id,
+                c.id AS matched_id,
+                c.version_id AS matched_version_id,
+                c.distance AS distance
+            FROM document_chunks s
+            CROSS JOIN LATERAL (
+                SELECT dc.id, dc.version_id,
+                       dc.embedding <=> s.embedding AS distance
+                FROM document_chunks dc
+                JOIN submission_versions sv ON sv.id = dc.version_id
+                JOIN submissions sub ON sub.id = sv.submission_id
+                WHERE sub.program_id = :program_id
+                  AND sub.id <> :submission_id
+                  AND dc.embedding <=> s.embedding <= :threshold
+                ORDER BY dc.embedding <=> s.embedding
+                LIMIT 3
+            ) c
+            WHERE s.id = ANY(:source_ids)
+            """
         )
-        result = await session.execute(stmt)
-        for candidate, distance in result.all():
-            similarity = float(1 - distance)
+        result = await session.execute(
+            lateral_sql,
+            {
+                "program_id": submission.program_id,
+                "submission_id": submission.id,
+                "threshold": COSINE_DISTANCE_THRESHOLD,
+                "source_ids": source_ids,
+            },
+        )
+        for row in result.all():
+            similarity = float(1 - row.distance)
             match = PlagiarismMatch(
                 version_id=version_id,
-                matched_version_id=candidate.version_id,
-                source_chunk_id=chunk_row.id,
-                matched_chunk_id=candidate.id,
+                matched_version_id=row.matched_version_id,
+                source_chunk_id=row.source_id,
+                matched_chunk_id=row.matched_id,
                 similarity=similarity,
                 source=PlagiarismSource.intra,
                 status=PlagiarismStatus.pending,
             )
             session.add(match)
-            matches_by_version.setdefault(candidate.version_id, []).append(match)
+            matches_by_version.setdefault(row.matched_version_id, []).append(match)
 
     await session.commit()
 
     if not matches_by_version:
         return [], embedder_name
 
-    # 5. Build per-other-submission summaries with metadata.
+    # 5. Build per-other-submission summaries with metadata. Batched: one query
+    # loads every matched version with its submission + student eagerly.
     summaries: list[MatchSummary] = []
-    for matched_vid, group in matches_by_version.items():
-        other_version = await session.get(
-            SubmissionVersion,
-            matched_vid,
-            options=[selectinload(SubmissionVersion.submission)],
+    matched_vids = list(matches_by_version.keys())
+    stmt = (
+        select(SubmissionVersion)
+        .options(
+            selectinload(SubmissionVersion.submission).selectinload(
+                Submission.student
+            )
         )
-        if other_version is None:
+        .where(SubmissionVersion.id.in_(matched_vids))
+    )
+    matched_versions = (await session.execute(stmt)).scalars().all()
+    for other_version in matched_versions:
+        other_submission = other_version.submission
+        if other_submission is None or other_submission.student is None:
             continue
-        other_submission = await _load_submission_with_student(
-            session, other_version.submission_id
-        )
-        if other_submission is None:
-            continue
+        group = matches_by_version[other_version.id]
         best = max(m.similarity for m in group)
         summaries.append(
             MatchSummary(
-                matched_version_id=matched_vid,
+                matched_version_id=other_version.id,
                 matched_student_name=other_submission.student.full_name,
                 matched_submission_title=other_submission.title,
                 best_similarity=best,
@@ -172,24 +203,20 @@ async def scan_version(
     return summaries, embedder_name
 
 
-async def _load_submission_with_student(
-    session: AsyncSession, submission_id: UUID
-) -> Submission | None:
-    stmt = (
-        select(Submission)
-        .options(selectinload(Submission.student))
-        .where(Submission.id == submission_id)
-    )
-    return (await session.execute(stmt)).scalar_one_or_none()
-
-
 async def list_matches_for_version(
-    session: AsyncSession, version_id: UUID
+    session: AsyncSession,
+    version_id: UUID,
+    *,
+    limit: int = 100,
+    offset: int = 0,
 ) -> list[dict[str, Any]]:
     """Return matches grouped by matched_version with chunk-level detail.
 
     The shape is designed for the API response (router-side mapping is trivial).
+    `limit` is capped server-side to keep response sizes predictable.
     """
+    safe_limit = max(1, min(limit, 500))
+    safe_offset = max(0, offset)
     stmt = (
         select(PlagiarismMatch)
         .options(
@@ -201,5 +228,7 @@ async def list_matches_for_version(
         )
         .where(PlagiarismMatch.version_id == version_id)
         .order_by(PlagiarismMatch.similarity.desc())
+        .limit(safe_limit)
+        .offset(safe_offset)
     )
     return list((await session.execute(stmt)).scalars().all())

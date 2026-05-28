@@ -18,6 +18,9 @@ type ApiInit = Omit<RequestInit, "body" | "headers"> & {
   formData?: FormData;     // for multipart uploads (skips JSON)
   headers?: Record<string, string>;
   authenticated?: boolean; // defaults true
+  // Next.js fetch cache config. Use with cache: "force-cache" for endpoints
+  // whose response is shared across all authenticated users (e.g. /programs).
+  next?: { revalidate?: number | false; tags?: string[] };
 };
 
 export async function apiFetch<T = unknown>(
@@ -31,6 +34,7 @@ export async function apiFetch<T = unknown>(
     authenticated = true,
     method = "GET",
     cache = "no-store",
+    next,
     ...rest
   } = init;
 
@@ -54,6 +58,7 @@ export async function apiFetch<T = unknown>(
     headers: finalHeaders,
     body: payload,
     cache,
+    ...(next ? { next } : {}),
     ...rest,
   });
 

@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
+import { getMessages } from "@/lib/i18n/server";
+import { LocaleProvider } from "@/lib/i18n/locale-provider";
+import { ThemeProvider, THEME_BOOT_SCRIPT } from "@/lib/theme/theme-provider";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -19,22 +23,32 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Aurelio · Revisión académica con IA",
+  title: "Tesis · Revisión académica con IA",
   description:
-    "Aurelio es la plataforma de revisión de tesis con inteligencia artificial, validación de citas y detección de plagio.",
+    "Tesis es la plataforma de revisión de tesis con inteligencia artificial, validación de citas y detección de plagio.",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const { locale, messages } = await getMessages();
+
   return (
     <html
-      lang="es"
+      lang={locale}
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <LocaleProvider initialLocale={locale} initialMessages={messages}>
+          <ThemeProvider>{children}</ThemeProvider>
+        </LocaleProvider>
+      </body>
     </html>
   );
 }

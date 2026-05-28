@@ -9,6 +9,14 @@ import type {
   SubmissionVersionDetail,
 } from "@/lib/api/types";
 
+// Keep in sync with experimental.serverActions.bodySizeLimit in next.config.ts
+// and MAX_FILE_BYTES in features/submissions/version-uploader.tsx.
+const MAX_VERSION_FILE_BYTES = 5 * 1024 * 1024;
+const ACCEPTED_VERSION_MIME = new Set([
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/pdf",
+]);
+
 export type SubmissionFilters = {
   program_id?: string;
   status?: string;
@@ -140,9 +148,115 @@ export async function createSubmissionAction(
   }
 }
 
+// ---- Bulk submission upload (one file = one new submission) ----
+
+export type BulkCreateResult =
+  | { ok: true; submissions: SubmissionDetail[] }
+  | { ok: false; error: string };
+
+// Per-file: keep in sync with MAX_VERSION_FILE_BYTES below.
+const MAX_BULK_FILES = 10;
+
+export async function createBulkSubmissionsAction(
+  _prev: BulkCreateResult | null,
+  formData: FormData,
+): Promise<BulkCreateResult> {
+  const program_id = String(formData.get("program_id") ?? "");
+  if (!program_id) {
+    return { ok: false, error: "Selecciona un programa académico" };
+  }
+  const files = formData.getAll("files").filter((f): f is File => f instanceof File && f.size > 0);
+  if (files.length === 0) {
+    return { ok: false, error: "Selecciona al menos un archivo" };
+  }
+  if (files.length > MAX_BULK_FILES) {
+    return {
+      ok: false,
+      error: `Máximo ${MAX_BULK_FILES} archivos por carga`,
+    };
+  }
+  for (const f of files) {
+    if (f.size > MAX_VERSION_FILE_BYTES) {
+      const sizeMb = (f.size / (1024 * 1024)).toFixed(1);
+      return {
+        ok: false,
+        error: `'${f.name}' pesa ${sizeMb} MB y el máximo por archivo es 5 MB.`,
+      };
+    }
+    const nameLower = f.name.toLowerCase();
+    const extOk = nameLower.endsWith(".docx") || nameLower.endsWith(".pdf");
+    const mimeOk = f.type === "" ? extOk : ACCEPTED_VERSION_MIME.has(f.type);
+    if (!extOk || !mimeOk) {
+      return {
+        ok: false,
+        error: `'${f.name}' no es .docx ni .pdf.`,
+      };
+    }
+  }
+
+  // Build the multipart payload the FastAPI bulk endpoint expects.
+  const upstream = new FormData();
+  upstream.append("program_id", program_id);
+  const titles = formData.getAll("titles");
+  const chapters = formData.getAll("chapters");
+  for (const f of files) upstream.append("files", f);
+  for (const t of titles) upstream.append("titles", String(t ?? ""));
+  for (const c of chapters) upstream.append("chapters", String(c ?? ""));
+
+  try {
+    const submissions = await apiFetch<SubmissionDetail[]>(
+      "/api/v1/submissions/bulk",
+      { method: "POST", formData: upstream },
+    );
+    revalidatePath("/student/submissions");
+    revalidatePath("/student");
+    return { ok: true, submissions };
+  } catch (err) {
+    return {
+      ok: false,
+      error: extractErrorMessage(err, "No se pudo subir los avances"),
+    };
+  }
+}
+
 export type UploadVersionResult =
   | { ok: true; version: SubmissionVersionDetail }
   | { ok: false; error: string };
+
+// ---- Email acta report (advisor only) ----
+
+export type EmailReportResult =
+  | { ok: true; to: string; filename: string }
+  | { ok: false; error: string };
+
+export async function sendReportByEmailAction(
+  submissionId: string,
+  to: string,
+  message: string | null,
+): Promise<EmailReportResult> {
+  const trimmed = to.trim();
+  if (!trimmed) {
+    return { ok: false, error: "Ingresá un correo destinatario" };
+  }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(trimmed)) {
+    return { ok: false, error: "El correo no es válido" };
+  }
+  try {
+    const res = await apiFetch<{ ok: true; to: string; filename: string }>(
+      `/api/v1/submissions/${submissionId}/email-report`,
+      {
+        method: "POST",
+        body: { to: trimmed, message: message?.trim() || null },
+      },
+    );
+    return { ok: true, to: res.to, filename: res.filename };
+  } catch (err) {
+    return {
+      ok: false,
+      error: extractErrorMessage(err, "No se pudo enviar el correo"),
+    };
+  }
+}
 
 export async function uploadVersionAction(
   submissionId: string,
@@ -152,6 +266,22 @@ export async function uploadVersionAction(
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
     return { ok: false, error: "Selecciona un archivo Word o PDF" };
+  }
+  if (file.size > MAX_VERSION_FILE_BYTES) {
+    const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+    return {
+      ok: false,
+      error: `El archivo pesa ${sizeMb} MB y el máximo permitido es 5 MB.`,
+    };
+  }
+  const nameLower = file.name.toLowerCase();
+  const extOk = nameLower.endsWith(".docx") || nameLower.endsWith(".pdf");
+  const mimeOk = file.type === "" ? extOk : ACCEPTED_VERSION_MIME.has(file.type);
+  if (!extOk || !mimeOk) {
+    return {
+      ok: false,
+      error: "Formato no soportado. Subí un archivo .docx o .pdf.",
+    };
   }
   try {
     const version = await apiFetch<SubmissionVersionDetail>(

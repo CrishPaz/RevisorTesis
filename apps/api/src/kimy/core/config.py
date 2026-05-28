@@ -12,10 +12,24 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    app_name: str = "Aurelio API"
+    app_name: str = "Tesis API"
     app_version: str = "0.1.0"
     environment: str = Field(default="development")
     debug: bool = True
+
+    # SQLAlchemy `echo` prints every statement + bound params to stdout. Useful
+    # for debugging a specific query, but in Windows + uvicorn dev the stdout
+    # write is synchronous and adds ~200-500ms per query — enough to make the
+    # dashboard feel sluggish even when the DB is fast. Keep it OFF by default
+    # and flip it on via env var when you actually need to read SQL.
+    sql_echo: bool = False
+
+    # Force NullPool even outside production. Set to True only when you hit the
+    # "Future attached to a different loop" error with uvicorn --reload — most
+    # of the time you want the pool ON in dev too, because asyncpg on Windows
+    # takes ~5s per fresh connection (DNS / loopback handshake), which crushes
+    # every request when NullPool opens a new socket each time.
+    db_force_null_pool: bool = False
 
     cors_origins: list[str] = Field(
         default_factory=lambda: ["http://localhost:3000"]
@@ -45,10 +59,21 @@ class Settings(BaseSettings):
     # with OpenAI text-embedding-3-small (which discriminates more sharply).
     orcid_advisor_fit_threshold: float = 0.35
 
-    crossref_user_agent: str = "Aurelio/0.1 (mailto:contact@example.com)"
+    crossref_user_agent: str = "Tesis/0.1 (mailto:contact@example.com)"
 
     storage_backend: str = "local"
     storage_path: str = "./storage"
+
+    # ---- SMTP (advisor sends acta PDF by email) ----
+    # Gmail: use smtp.gmail.com:587 with an App Password (NOT your normal pwd).
+    # https://support.google.com/accounts/answer/185833
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_from_email: str | None = None
+    smtp_from_name: str = "Plataforma Tesis"
+    smtp_use_tls: bool = True  # STARTTLS on port 587. Set to False + port 465 for SSL.
 
 
 @lru_cache

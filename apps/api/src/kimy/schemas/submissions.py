@@ -61,6 +61,11 @@ class SubmissionSummary(BaseModel):
     latest_version_status: VersionParsingStatus | None = None
     advisor_fit_score: float | None = None
     advisor_fit_alert: bool = False
+    # AI evaluation rollup (latest version) — populated by list_submissions for
+    # advisor comparison view. None when no evaluation exists yet.
+    latest_grade: float | None = None
+    latest_percentage: float | None = None
+    findings_count: int | None = None
 
 
 class SubmissionDetail(SubmissionSummary):

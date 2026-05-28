@@ -1,9 +1,9 @@
-"""Shared Aurelio letterhead used by every PDF report.
+"""Shared Tesis letterhead used by every PDF report.
 
 Renders on every page via the `onFirstPage` / `onLaterPages` callbacks of
 ``SimpleDocTemplate``. Includes:
 - Top violet accent band
-- Logo badge ("A" on violet square) + "Aurelio" wordmark + tagline
+- Logo badge ("A" on violet square) + "Tesis" wordmark + tagline
 - Right column with institutional info (UNT · Escuela de Posgrado) and
   generation timestamp
 - Bottom footer with the report kind + page number
@@ -38,7 +38,7 @@ LETTERHEAD_BOTTOM_MARGIN = 1.8 * cm
 def make_letterhead(report_kind: str):
     """Return a ``(canvas, doc) -> None`` callback for SimpleDocTemplate.
 
-    ``report_kind`` is rendered in the footer left ("Aurelio · {report_kind}").
+    ``report_kind`` is rendered in the footer left ("Tesis · {report_kind}").
     """
 
     def draw(canvas: Canvas, doc) -> None:
@@ -49,7 +49,7 @@ def make_letterhead(report_kind: str):
         canvas.setFillColor(AURORA_VIOLET)
         canvas.rect(0, height - 0.18 * cm, width, 0.18 * cm, fill=1, stroke=0)
 
-        # 2) Logo badge (rounded square with "A").
+        # 2) Logo badge (rounded square with "T" for Tesis).
         badge_x = 2.0 * cm
         badge_y = height - 2.15 * cm
         badge_size = 0.95 * cm
@@ -62,14 +62,14 @@ def make_letterhead(report_kind: str):
         canvas.drawCentredString(
             badge_x + badge_size / 2,
             badge_y + badge_size / 2 - 0.18 * cm,
-            "A",
+            "T",
         )
 
         # 3) Wordmark + tagline.
         text_x = badge_x + badge_size + 0.35 * cm
         canvas.setFillColor(AURORA_INK)
         canvas.setFont("Helvetica-Bold", 18)
-        canvas.drawString(text_x, height - 1.6 * cm, "Aurelio")
+        canvas.drawString(text_x, height - 1.6 * cm, "Tesis")
         canvas.setFillColor(AURORA_MUTED)
         canvas.setFont("Helvetica", 7.5)
         canvas.drawString(
@@ -100,7 +100,7 @@ def make_letterhead(report_kind: str):
         canvas.setFillColor(AURORA_MUTED)
         canvas.setFont("Helvetica", 8)
         canvas.drawString(
-            2.0 * cm, 0.95 * cm, f"Aurelio · {report_kind}"
+            2.0 * cm, 0.95 * cm, f"Tesis · {report_kind}"
         )
         canvas.drawRightString(
             width - 2.0 * cm, 0.95 * cm, f"Página {doc.page}"

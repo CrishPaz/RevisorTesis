@@ -73,14 +73,14 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   card: {
     backgroundColor: "#fff",
-    borderColor: "#e4e4e7",
+    borderColor: "#bae6fd",
     borderWidth: 1,
     borderRadius: 10,
     padding: 16,
   },
   label: { fontSize: 11, color: "#71717a", marginBottom: 4 },
   value: { fontSize: 15, color: "#0f172a", marginBottom: 12 },
-  divider: { height: 1, backgroundColor: "#f4f4f5", marginVertical: 4 },
+  divider: { height: 1, backgroundColor: "#e0f2fe", marginVertical: 4 },
   logout: {
     backgroundColor: "#fff",
     borderWidth: 1,

@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   statusValue: { fontWeight: "600", color: "#0f172a" },
   evalCard: {
     backgroundColor: "#fff",
-    borderColor: "#e4e4e7",
+    borderColor: "#bae6fd",
     borderWidth: 1,
     borderRadius: 10,
     padding: 14,
@@ -228,7 +228,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 13, fontWeight: "700", marginBottom: 6 },
   finding: {
     backgroundColor: "#fff",
-    borderColor: "#e4e4e7",
+    borderColor: "#bae6fd",
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
@@ -243,7 +243,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#52525b",
     fontStyle: "italic",
-    backgroundColor: "#f4f4f5",
+    backgroundColor: "#e0f2fe",
     padding: 8,
     borderRadius: 6,
   },

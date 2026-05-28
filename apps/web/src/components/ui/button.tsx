@@ -9,22 +9,22 @@ const buttonVariants = cva(
   // "Reporte ejecutivo (PDF)" don't wrap inside a fixed-height button.
   // `shrink-0` prevents flex parents from squashing the button when the sibling
   // text takes most of the row width.
-  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:focus-visible:ring-violet-400 dark:focus-visible:ring-offset-[#0b0e2a]",
+  "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium leading-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 dark:focus-visible:ring-sky-400 dark:focus-visible:ring-offset-[#06121f]",
   {
     variants: {
       variant: {
         default: cn(
           "bg-zinc-900 text-zinc-50 hover:bg-zinc-900/90",
           // Aurora: violet gradient with subtle glow
-          "dark:bg-gradient-to-br dark:from-violet-600 dark:to-violet-400 dark:text-white dark:shadow-[0_8px_24px_-10px_rgba(124,58,237,0.6)] dark:hover:from-violet-500 dark:hover:to-violet-300",
+          "dark:bg-gradient-to-br dark:from-sky-600 dark:to-sky-400 dark:text-white dark:shadow-[0_8px_24px_-10px_rgba(14,165,233,0.6)] dark:hover:from-sky-500 dark:hover:to-sky-300",
         ),
         outline: cn(
           "border border-zinc-200 bg-white hover:bg-zinc-100 hover:text-zinc-900",
-          "dark:border-[color:rgba(196,181,253,0.3)] dark:bg-transparent dark:text-[color:var(--aurora-cream)] dark:hover:border-[color:rgba(196,181,253,0.55)] dark:hover:bg-[rgba(124,58,237,0.12)]",
+          "dark:border-[color:rgba(125,211,252,0.3)] dark:bg-transparent dark:text-[color:var(--aurora-cream)] dark:hover:border-[color:rgba(125,211,252,0.55)] dark:hover:bg-[rgba(14,165,233,0.12)]",
         ),
         ghost: cn(
           "hover:bg-zinc-100 hover:text-zinc-900",
-          "dark:text-[color:var(--aurora-cream)] dark:hover:bg-[rgba(124,58,237,0.12)]",
+          "dark:text-[color:var(--aurora-cream)] dark:hover:bg-[rgba(14,165,233,0.12)]",
         ),
         destructive: cn(
           "bg-rose-600 text-white hover:bg-rose-700",

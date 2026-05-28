@@ -10,7 +10,9 @@ so the pipeline can be exercised without a real ORCID account.
 """
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any
 
@@ -19,6 +21,51 @@ import httpx
 from kimy.core.config import get_settings
 
 logger = logging.getLogger(__name__)
+
+# In-process TTL cache. ORCID public records change rarely; caching by orcid_id
+# for ~6h slashes repeated network round-trips during a sync window. Bound the
+# cache to keep memory predictable. The key intentionally does NOT include the
+# access token — tokens are per-advisor but the upstream response is the same
+# regardless of which advisor's token retrieved it.
+_CACHE_TTL_SECONDS = 6 * 60 * 60
+_CACHE_MAX_ENTRIES = 256
+_person_cache: dict[str, tuple[float, "OrcidPerson | None"]] = {}
+_works_cache: dict[str, tuple[float, list["OrcidWork"]]] = {}
+_cache_lock = asyncio.Lock()
+
+
+def _evict_if_full(cache: dict[str, tuple[float, Any]]) -> None:
+    if len(cache) <= _CACHE_MAX_ENTRIES:
+        return
+    # Drop the oldest entry — dict preserves insertion order.
+    oldest_key = next(iter(cache))
+    cache.pop(oldest_key, None)
+
+
+def _cache_get(cache: dict[str, tuple[float, Any]], key: str) -> Any | None:
+    entry = cache.get(key)
+    if entry is None:
+        return None
+    expires_at, value = entry
+    if expires_at < time.monotonic():
+        cache.pop(key, None)
+        return None
+    return value
+
+
+def _cache_put(cache: dict[str, tuple[float, Any]], key: str, value: Any) -> None:
+    cache[key] = (time.monotonic() + _CACHE_TTL_SECONDS, value)
+    _evict_if_full(cache)
+
+
+def invalidate_cache(orcid_id: str | None = None) -> None:
+    """Drop cached ORCID responses. Pass an orcid_id to evict only one record."""
+    if orcid_id is None:
+        _person_cache.clear()
+        _works_cache.clear()
+        return
+    _person_cache.pop(orcid_id, None)
+    _works_cache.pop(orcid_id, None)
 
 
 @dataclass(slots=True)
@@ -52,6 +99,11 @@ async def fetch_person(orcid_id: str, access_token: str) -> OrcidPerson | None:
             affiliation="Universidad de Demostración",
         )
 
+    async with _cache_lock:
+        cached = _cache_get(_person_cache, orcid_id)
+    if cached is not None:
+        return cached
+
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.get(
             f"{_api_base()}/{orcid_id}/person",
@@ -76,12 +128,20 @@ async def fetch_person(orcid_id: str, access_token: str) -> OrcidPerson | None:
         first = (employments[0].get("summaries") or [{}])[0]
         org = (first.get("employment-summary") or {}).get("organization") or {}
         affiliation = org.get("name")
-    return OrcidPerson(given_name=given, family_name=family, affiliation=affiliation)
+    person = OrcidPerson(given_name=given, family_name=family, affiliation=affiliation)
+    async with _cache_lock:
+        _cache_put(_person_cache, orcid_id, person)
+    return person
 
 
 async def fetch_works(orcid_id: str, access_token: str) -> list[OrcidWork]:
     if access_token.startswith("stub."):
         return _stub_works()
+
+    async with _cache_lock:
+        cached_works = _cache_get(_works_cache, orcid_id)
+    if cached_works is not None:
+        return cached_works
 
     async with httpx.AsyncClient(timeout=30.0) as client:
         resp = await client.get(
@@ -140,6 +200,8 @@ async def fetch_works(orcid_id: str, access_token: str) -> list[OrcidWork]:
                 url=url[:500] if url else None,
             )
         )
+    async with _cache_lock:
+        _cache_put(_works_cache, orcid_id, works)
     return works
 
 

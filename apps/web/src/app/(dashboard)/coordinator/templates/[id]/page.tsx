@@ -13,10 +13,28 @@ import {
 import { StructureTree } from "@/features/templates/structure-tree";
 import { ApiError } from "@/lib/api/client";
 import { fetchTemplate } from "@/lib/api/templates";
-import { PROGRAM_LEVEL_LABELS, TEMPLATE_STATUS_LABELS } from "@/lib/api/types";
+import type {
+  ProgramLevel,
+  TemplateParsingStatus,
+} from "@/lib/api/types";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMessages } from "@/lib/i18n/server";
+import type { MessageKey } from "@/lib/i18n";
 
-export const metadata = { title: "Plantilla · Aurelio" };
+export const metadata = { title: "Plantilla · Tesis" };
+
+const PROGRAM_LEVEL_KEY: Record<ProgramLevel, MessageKey> = {
+  undergraduate: "panel.programs.level.undergraduate",
+  masters: "panel.programs.level.masters",
+  doctorate: "panel.programs.level.doctorate",
+};
+
+const TEMPLATE_STATUS_KEY: Record<TemplateParsingStatus, MessageKey> = {
+  pending: "panel.templates.status.pending",
+  processing: "panel.templates.status.processing",
+  parsed: "panel.templates.status.parsed",
+  failed: "panel.templates.status.failed",
+};
 
 export default async function TemplateDetailPage({
   params,
@@ -28,6 +46,9 @@ export default async function TemplateDetailPage({
   if (user.role !== "coordinator" && user.role !== "admin") {
     redirect(`/${user.role}`);
   }
+
+  const { t, locale } = await getMessages();
+  const dateLocale = locale === "en" ? "en-US" : "es-PE";
 
   const { id } = await params;
   let template;
@@ -45,7 +66,7 @@ export default async function TemplateDetailPage({
           href="/coordinator/templates"
           className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-[color:var(--aurora-cream)]"
         >
-          ← Volver a documentos patrón
+          {t("panel.coordinator.templateDetail.back")}
         </Link>
       </div>
 
@@ -60,12 +81,14 @@ export default async function TemplateDetailPage({
                   : "warning"
             }
           >
-            {TEMPLATE_STATUS_LABELS[template.parsing_status]}
+            {t(TEMPLATE_STATUS_KEY[template.parsing_status])}
           </Badge>
           {template.is_active ? (
-            <Badge>Activa</Badge>
+            <Badge>{t("panel.coordinator.templateDetail.active")}</Badge>
           ) : (
-            <Badge variant="outline">Inactiva</Badge>
+            <Badge variant="outline">
+              {t("panel.coordinator.templateDetail.inactive")}
+            </Badge>
           )}
           <Badge variant="muted">v{template.version}</Badge>
         </div>
@@ -73,13 +96,16 @@ export default async function TemplateDetailPage({
           {template.title}
         </h1>
         <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
-          {template.description ?? "Sin descripción."}
+          {template.description ??
+            t("panel.coordinator.templateDetail.noDescription")}
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Programa asociado</CardTitle>
+          <CardTitle>
+            {t("panel.coordinator.templateDetail.program.title")}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm">
@@ -88,7 +114,7 @@ export default async function TemplateDetailPage({
             </span>{" "}
             {template.program.name} ·{" "}
             <span className="text-zinc-500">
-              {PROGRAM_LEVEL_LABELS[template.program.level]}
+              {t(PROGRAM_LEVEL_KEY[template.program.level])}
             </span>
           </p>
         </CardContent>
@@ -96,63 +122,85 @@ export default async function TemplateDetailPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Archivo original</CardTitle>
+          <CardTitle>
+            {t("panel.coordinator.templateDetail.file.title")}
+          </CardTitle>
           <CardDescription>
-            Descarga el documento tal como fue subido.
+            {t("panel.coordinator.templateDetail.file.description")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
           <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-sm">
-            <dt className="text-zinc-500">Nombre</dt>
+            <dt className="text-zinc-500">
+              {t("panel.coordinator.templateDetail.file.name")}
+            </dt>
             <dd className="font-mono break-all">
               {template.original_filename}
             </dd>
-            <dt className="text-zinc-500">MIME</dt>
+            <dt className="text-zinc-500">
+              {t("panel.coordinator.templateDetail.file.mime")}
+            </dt>
             <dd className="font-mono">{template.mime_type}</dd>
-            <dt className="text-zinc-500">Tamaño</dt>
+            <dt className="text-zinc-500">
+              {t("panel.coordinator.templateDetail.file.size")}
+            </dt>
             <dd>
               {(template.file_size_bytes / 1024).toFixed(1)} KB
             </dd>
-            <dt className="text-zinc-500">Subido</dt>
-            <dd>{new Date(template.created_at).toLocaleString("es-PE")}</dd>
+            <dt className="text-zinc-500">
+              {t("panel.coordinator.templateDetail.file.uploaded")}
+            </dt>
+            <dd>{new Date(template.created_at).toLocaleString(dateLocale)}</dd>
           </dl>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Estructura detectada</CardTitle>
+          <CardTitle>
+            {t("panel.coordinator.templateDetail.structure.title")}
+          </CardTitle>
           <CardDescription>
-            Heurística basada en estilos de encabezado y numeración. La Fase 4
-            refinará esta extracción con LLM.
+            {t("panel.coordinator.templateDetail.structure.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {template.parsing_status === "failed" ? (
             <p className="rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/30 dark:text-rose-300">
-              {template.parsing_error ?? "Error desconocido al procesar."}
+              {template.parsing_error ??
+                t("panel.coordinator.templateDetail.structure.parsingError")}
             </p>
           ) : template.structure_json ? (
             <div className="space-y-3">
               <p className="text-xs text-zinc-500">
-                {template.structure_json.sections.length} secciones de primer
-                nivel · {template.structure_json.total_paragraphs} párrafos ·{" "}
-                {template.structure_json.total_chars} caracteres
+                {t(
+                  "panel.coordinator.templateDetail.structure.summaryBase",
+                  {
+                    sections: template.structure_json.sections.length,
+                    paragraphs: template.structure_json.total_paragraphs,
+                    chars: template.structure_json.total_chars,
+                  },
+                )}
                 {template.structure_json.page_count > 0
-                  ? ` · ${template.structure_json.page_count} páginas`
+                  ? t(
+                      "panel.coordinator.templateDetail.structure.summaryPages",
+                      { pages: template.structure_json.page_count },
+                    )
                   : ""}
               </p>
               <StructureTree sections={template.structure_json.sections} />
             </div>
           ) : (
-            <p className="text-sm text-zinc-500">Aún procesando…</p>
+            <p className="text-sm text-zinc-500">
+              {t("panel.coordinator.templateDetail.structure.processing")}
+            </p>
           )}
         </CardContent>
       </Card>
 
       <div>
         <Button asChild variant="outline">
-          <Link href="/coordinator/templates">Volver</Link>
+          <Link href="/coordinator/templates">{t("panel.common.back")}</Link>
         </Button>
       </div>
     </div>

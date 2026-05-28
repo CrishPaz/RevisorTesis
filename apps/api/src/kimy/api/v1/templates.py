@@ -33,8 +33,12 @@ _CoordOrAdmin = require_roles(UserRole.coordinator, UserRole.admin)
 async def list_templates(
     session: SessionDep,
     program_id: Annotated[UUID | None, Query()] = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[TemplateSummary]:
-    items = await templates_service.list_templates(session, program_id=program_id)
+    items = await templates_service.list_templates(
+        session, program_id=program_id, limit=limit, offset=offset
+    )
     return [TemplateSummary.model_validate(t) for t in items]
 
 

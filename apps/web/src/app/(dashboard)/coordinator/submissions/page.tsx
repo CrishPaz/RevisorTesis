@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import {
   Card,
@@ -16,8 +16,9 @@ import {
   type SubmissionFilters,
 } from "@/lib/api/submissions";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Avances del programa · Aurelio" };
+export const metadata = { title: "Avances del programa · Tesis" };
 
 export default async function CoordinatorSubmissionsPage({
   searchParams,
@@ -37,30 +38,32 @@ export default async function CoordinatorSubmissionsPage({
     fit_alert: sp.fit_alert === "true" ? true : undefined,
   };
 
-  const [submissions, programs, advisors] = await Promise.all([
+  const [submissions, programs, advisors, { t }] = await Promise.all([
     fetchSubmissions(filters),
     fetchPrograms(),
     fetchEligibleAdvisors(),
+    getMessages(),
   ]);
 
   return (
     <div className="space-y-8">
       <header className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
-          Coordinador
+          {t("submission.coordinator.badge")}
         </p>
-        <h1 className="text-3xl font-semibold tracking-tight">Avances</h1>
+        <h1 className="text-3xl font-semibold tracking-tight">
+          {t("submission.coordinator.title")}
+        </h1>
         <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
-          Filtra por programa, estado y alerta ORCID. Asigna o cambia el asesor
-          de cada avance — la afinidad temática se recalcula automáticamente.
+          {t("submission.coordinator.subtitle")}
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Filtros</CardTitle>
+          <CardTitle>{t("submission.coordinator.filters.title")}</CardTitle>
           <CardDescription>
-            Los cambios se aplican en vivo. Los filtros van en la URL.
+            {t("submission.coordinator.filters.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -70,16 +73,19 @@ export default async function CoordinatorSubmissionsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>Resultados ({submissions.length})</CardTitle>
+          <CardTitle>
+            {t("submission.coordinator.results.title", {
+              n: submissions.length,
+            })}
+          </CardTitle>
           <CardDescription>
-            Selecciona varios avances para aplicar acciones en lote o descargar
-            un reporte comparativo en CSV.
+            {t("submission.coordinator.results.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {submissions.length === 0 ? (
             <p className="text-sm text-zinc-500">
-              No hay avances que coincidan con los filtros.
+              {t("submission.coordinator.noResults")}
             </p>
           ) : (
             <SelectableSubmissionsList

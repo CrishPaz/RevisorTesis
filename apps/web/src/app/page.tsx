@@ -29,7 +29,7 @@ export default async function Home() {
       <div className="w-full max-w-2xl space-y-8">
         <header className="space-y-2 text-center">
           <p className="text-sm font-medium uppercase tracking-widest text-zinc-500">
-            Plataforma Aurelio
+            Plataforma Tesis
           </p>
           <h1 className="text-4xl font-semibold tracking-tight text-zinc-900 dark:text-[color:var(--aurora-cream)]">
             Revisión inteligente de tesis

@@ -18,8 +18,9 @@ import { fetchCitations } from "@/lib/api/citations";
 import { fetchEvaluation } from "@/lib/api/evaluations";
 import { fetchSubmission } from "@/lib/api/submissions";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Avance · Aurelio" };
+export const metadata = { title: "Avance · Tesis" };
 
 export default async function StudentSubmissionDetail({
   params,
@@ -41,6 +42,8 @@ export default async function StudentSubmissionDetail({
     throw err;
   }
 
+  const { t } = await getMessages();
+
   const latestVersion = submission.versions[0]; // versions arrive sorted desc
   const [evaluation, citations] = latestVersion
     ? await Promise.all([
@@ -50,10 +53,12 @@ export default async function StudentSubmissionDetail({
     : [null, [] as Awaited<ReturnType<typeof fetchCitations>>];
 
   const evaluationEmptyMessage = !latestVersion
-    ? "Sube una versión para activar el análisis."
+    ? t("submission.detail.eval.noVersion")
     : latestVersion.parsing_status === "ai_completed"
-      ? "Evaluación cargando…"
-      : `Aún no hay evaluación. Estado actual: ${latestVersion.parsing_status}.`;
+      ? t("submission.detail.eval.loading")
+      : t("submission.detail.eval.pending", {
+          status: latestVersion.parsing_status,
+        });
 
   return (
     <div className="space-y-8">
@@ -62,7 +67,7 @@ export default async function StudentSubmissionDetail({
           href="/student/submissions"
           className="text-sm text-zinc-500 hover:text-zinc-900 dark:hover:text-[color:var(--aurora-cream)]"
         >
-          ← Volver a mis avances
+          {t("submission.list.backToList")}
         </Link>
       </div>
 
@@ -90,15 +95,14 @@ export default async function StudentSubmissionDetail({
 
       <CitationsPanel
         citations={citations}
-        emptyMessage="Aún no se han extraído referencias bibliográficas. Asegúrate de incluir una sección 'Referencias' al final del documento."
+        emptyMessage={t("submission.detail.citations.empty")}
       />
 
       <Card>
         <CardHeader>
-          <CardTitle>Subir nueva versión</CardTitle>
+          <CardTitle>{t("submission.detail.upload.title")}</CardTitle>
           <CardDescription>
-            Cada versión se analiza automáticamente. Recibirás una nueva
-            evaluación cuando el pipeline termine (típicamente en segundos).
+            {t("submission.detail.upload.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -108,9 +112,13 @@ export default async function StudentSubmissionDetail({
 
       <Card>
         <CardHeader>
-          <CardTitle>Versiones ({submission.versions.length})</CardTitle>
+          <CardTitle>
+            {t("submission.detail.versions.title", {
+              n: submission.versions.length,
+            })}
+          </CardTitle>
           <CardDescription>
-            Las versiones se ordenan de la más reciente a la más antigua.
+            {t("submission.detail.versions.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>

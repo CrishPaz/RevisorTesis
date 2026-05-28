@@ -1,4 +1,4 @@
-﻿import { redirect } from "next/navigation";
+import { redirect } from "next/navigation";
 
 import {
   Card,
@@ -12,8 +12,9 @@ import { TemplateForm } from "@/features/templates/template-form";
 import { fetchPrograms } from "@/lib/api/programs";
 import { fetchTemplates } from "@/lib/api/templates";
 import { getCurrentUser } from "@/lib/auth/session";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = { title: "Documentos patrón · Aurelio" };
+export const metadata = { title: "Documentos patrón · Tesis" };
 
 export default async function CoordinatorTemplatesPage() {
   const user = await getCurrentUser();
@@ -21,6 +22,8 @@ export default async function CoordinatorTemplatesPage() {
   if (user.role !== "coordinator" && user.role !== "admin") {
     redirect(`/${user.role}`);
   }
+
+  const { t } = await getMessages();
 
   const [programs, templates] = await Promise.all([
     fetchPrograms(),
@@ -31,22 +34,21 @@ export default async function CoordinatorTemplatesPage() {
     <div className="space-y-8">
       <header className="space-y-1">
         <p className="text-xs font-medium uppercase tracking-widest text-zinc-500">
-          Coordinador
+          {t("panel.common.coordinator")}
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Documentos patrón
+          {t("panel.coordinator.templates.title")}
         </h1>
         <p className="text-zinc-600 dark:text-[color:var(--aurora-cream-dim)]">
-          Sube la plantilla institucional (Word o PDF) para cada programa. El
-          sistema extrae automáticamente la estructura de secciones.
+          {t("panel.coordinator.templates.subtitle")}
         </p>
       </header>
 
       <Card>
         <CardHeader>
-          <CardTitle>Subir nueva plantilla</CardTitle>
+          <CardTitle>{t("panel.coordinator.templates.upload.title")}</CardTitle>
           <CardDescription>
-            La versión se incrementa automáticamente por programa.
+            {t("panel.coordinator.templates.upload.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -56,20 +58,24 @@ export default async function CoordinatorTemplatesPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Plantillas registradas ({templates.length})</CardTitle>
+          <CardTitle>
+            {t("panel.coordinator.templates.list.title", {
+              count: templates.length,
+            })}
+          </CardTitle>
           <CardDescription>
-            Activa la versión vigente para cada programa.
+            {t("panel.coordinator.templates.list.description")}
           </CardDescription>
         </CardHeader>
         <CardContent>
           {templates.length === 0 ? (
             <p className="text-sm text-zinc-500">
-              Aún no hay plantillas. Sube la primera arriba.
+              {t("panel.coordinator.templates.empty")}
             </p>
           ) : (
             <ul className="space-y-2">
-              {templates.map((t) => (
-                <TemplateCard key={t.id} template={t} />
+              {templates.map((tpl) => (
+                <TemplateCard key={tpl.id} template={tpl} />
               ))}
             </ul>
           )}

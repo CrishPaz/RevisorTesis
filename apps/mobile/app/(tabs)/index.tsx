@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     flexBasis: "31%",
     flexGrow: 1,
     backgroundColor: "#fff",
-    borderColor: "#e4e4e7",
+    borderColor: "#bae6fd",
     borderWidth: 1,
     borderRadius: 10,
     padding: 12,
@@ -140,7 +140,7 @@ const styles = StyleSheet.create({
   statValueSmall: { fontSize: 14, fontWeight: "600" },
   latestCard: {
     backgroundColor: "#fff",
-    borderColor: "#e4e4e7",
+    borderColor: "#bae6fd",
     borderWidth: 1,
     borderRadius: 10,
     padding: 16,

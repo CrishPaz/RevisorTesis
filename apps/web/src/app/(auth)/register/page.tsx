@@ -2,44 +2,55 @@ import Link from "next/link";
 
 import { AuthSplit } from "@/features/auth/auth-split";
 import { RegisterForm } from "@/features/auth/register-form";
+import { getMessages } from "@/lib/i18n/server";
 
-export const metadata = {
-  title: "Crear cuenta · Aurelio",
-};
+export async function generateMetadata() {
+  const { t } = await getMessages();
+  return {
+    title: t("authForm.register.metaTitle"),
+  };
+}
 
-export default function RegisterPage() {
+export default async function RegisterPage() {
+  const { t } = await getMessages();
   return (
     <AuthSplit
-      pill="Únete a la plataforma"
+      pill={t("authForm.register.pill")}
       title={
         <>
-          UN PASO MÁS <br />
-          <span className="aurora-gradient-text">CERCA</span> DE TU TESIS.
+          {t("authForm.register.titleLine1")} <br />
+          <span className="aurora-gradient-text">
+            {t("authForm.register.titleHighlight")}
+          </span>{" "}
+          {t("authForm.register.titleTail")}
         </>
       }
-      description={
-        <>
-          Crea tu cuenta para subir avances, recibir retroalimentación de la IA y trabajar en
-          paralelo con tu asesor. La revisión queda registrada, auditada y disponible para tu
-          jurado.
-        </>
-      }
+      description={t("authForm.register.description")}
       highlights={[
-        { label: "Estructura", value: "APA 7" },
-        { label: "Plagio", value: "pgvector" },
-        { label: "Roles", value: "4" },
+        {
+          label: t("authForm.register.highlight.structure.label"),
+          value: t("authForm.register.highlight.structure.value"),
+        },
+        {
+          label: t("authForm.register.highlight.plagiarism.label"),
+          value: t("authForm.register.highlight.plagiarism.value"),
+        },
+        {
+          label: t("authForm.register.highlight.roles.label"),
+          value: t("authForm.register.highlight.roles.value"),
+        },
       ]}
-      formTitle="Crear cuenta"
-      formDescription="Selecciona tu rol con cuidado: define qué pantallas verás y qué acciones podrás realizar."
+      formTitle={t("authForm.register.formTitle")}
+      formDescription={t("authForm.register.formDescription")}
       formChildren={<RegisterForm />}
       formFooter={
         <>
-          ¿Ya tienes cuenta?{" "}
+          {t("authForm.register.footerQuestion")}{" "}
           <Link
             href="/login"
             className="font-medium text-[color:var(--aurora-primary-soft)] underline-offset-4 hover:underline"
           >
-            Iniciar sesión
+            {t("authForm.register.footerCta")}
           </Link>
         </>
       }
