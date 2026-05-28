@@ -4,7 +4,7 @@ import enum
 from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
-from sqlalchemy import Enum, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -59,5 +59,6 @@ class SubmissionVersion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     parsing_error: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     structure_json: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    enable_copyleaks: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
 
     submission: Mapped[Submission] = relationship(back_populates="versions")

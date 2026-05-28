@@ -33,16 +33,16 @@ export type ActivityItem = {
   description: string;
 };
 
-// Stats are heavy on the backend (10 sequential SQL queries with multi-table
-// JOINs). They're also the SAME for every coordinator/admin in the same
-// program scope, so caching the response by URL is safe. Revalidate every 30s
-// so the dashboard stays fresh enough without hammering the API on every nav.
-// Mutations that change the underlying data call updateTag("stats").
+// Stats are heavy on the backend (10 parallel SQL queries) and SAME for every
+// coordinator/admin in the same program scope, so caching the response by URL
+// is safe. Mutations that change the underlying data call `updateTag("stats")`
+// to force-invalidate immediately, so the revalidate window can be generous —
+// it's just the fallback freshness for when nobody triggered an update.
 export async function fetchStatsOverview(programId?: string): Promise<StatsOverview> {
   const qs = programId ? `?program_id=${programId}` : "";
   return apiFetch<StatsOverview>(`/api/v1/stats/overview${qs}`, {
     cache: "force-cache",
-    next: { tags: ["stats", "stats:overview"], revalidate: 30 },
+    next: { tags: ["stats", "stats:overview"], revalidate: 120 },
   });
 }
 
@@ -54,6 +54,6 @@ export async function fetchStatsActivity(
   if (programId) params.set("program_id", programId);
   return apiFetch<ActivityItem[]>(`/api/v1/stats/activity?${params.toString()}`, {
     cache: "force-cache",
-    next: { tags: ["stats", "stats:activity"], revalidate: 15 },
+    next: { tags: ["stats", "stats:activity"], revalidate: 60 },
   });
 }

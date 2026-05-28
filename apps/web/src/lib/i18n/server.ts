@@ -13,6 +13,12 @@ import {
   type Messages,
 } from "./index";
 
+// Public type so server components can pass `t` through props without redeclaring.
+export type Translator = (
+  key: MessageKey,
+  values?: Record<string, string | number>,
+) => string;
+
 // `cache()` is not strictly necessary — cookies() is already memoized per
 // request — but reading the cookie is cheap so we keep it lean.
 export async function getLocale(): Promise<Locale> {

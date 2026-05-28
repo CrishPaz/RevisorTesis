@@ -1,6 +1,6 @@
 from functools import lru_cache
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -74,6 +74,17 @@ class Settings(BaseSettings):
     smtp_from_email: str | None = None
     smtp_from_name: str = "Plataforma Tesis"
     smtp_use_tls: bool = True  # STARTTLS on port 587. Set to False + port 465 for SSL.
+
+    # ---- Copyleaks (external plagiarism detection) ----
+    # Register at https://copyleaks.com — free academic tier available.
+    # Leave blank to disable Copyleaks integration; versions with
+    # enable_copyleaks=True will fail with a descriptive auth error.
+    copyleaks_email: str = ""
+    copyleaks_api_key: SecretStr = SecretStr("")
+    # Seconds between polling attempts while waiting for Copyleaks results.
+    copyleaks_polling_interval_sec: int = 15
+    # Maximum seconds to wait for a Copyleaks scan before marking the version failed.
+    copyleaks_timeout_sec: int = 300
 
 
 @lru_cache

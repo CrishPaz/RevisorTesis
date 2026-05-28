@@ -37,6 +37,7 @@ class SubmissionVersionSummary(BaseModel):
     page_count: int
     parsing_status: VersionParsingStatus
     parsing_error: str | None
+    enable_copyleaks: bool
     created_at: datetime
 
 

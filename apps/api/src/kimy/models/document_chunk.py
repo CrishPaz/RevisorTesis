@@ -31,6 +31,7 @@ class DocumentChunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     section: Mapped[str | None] = mapped_column(String(255), nullable=True)
     text: Mapped[str] = mapped_column(Text, nullable=False)
     char_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     embedding: Mapped[list[float]] = mapped_column(
         Vector(EMBEDDING_DIM), nullable=False
