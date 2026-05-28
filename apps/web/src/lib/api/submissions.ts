@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import { apiFetch, extractErrorMessage } from "@/lib/api/client";
 import type {
+  ReportType,
   SubmissionDetail,
   SubmissionSummary,
   SubmissionVersionDetail,
@@ -233,6 +234,7 @@ export async function sendReportByEmailAction(
   submissionId: string,
   to: string,
   message: string | null,
+  reportType?: ReportType,
 ): Promise<EmailReportResult> {
   const trimmed = to.trim();
   if (!trimmed) {
@@ -242,12 +244,16 @@ export async function sendReportByEmailAction(
     return { ok: false, error: "El correo no es válido" };
   }
   try {
+    const body: Record<string, unknown> = {
+      to: trimmed,
+      message: message?.trim() || null,
+    };
+    if (reportType !== undefined) {
+      body.report_type = reportType;
+    }
     const res = await apiFetch<{ ok: true; to: string; filename: string }>(
       `/api/v1/submissions/${submissionId}/email-report`,
-      {
-        method: "POST",
-        body: { to: trimmed, message: message?.trim() || null },
-      },
+      { method: "POST", body },
     );
     return { ok: true, to: res.to, filename: res.filename };
   } catch (err) {
@@ -284,6 +290,8 @@ export async function uploadVersionAction(
     };
   }
   try {
+    // If enable_copyleaks is not present in formData (legacy callers), it stays
+    // absent and the backend defaults to True.
     const version = await apiFetch<SubmissionVersionDetail>(
       `/api/v1/submissions/${submissionId}/versions`,
       { method: "POST", formData },

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   uploadVersionAction,
   type UploadVersionResult,
@@ -153,6 +154,23 @@ export function VersionUploader({
           placeholder={t("submission.uploader.commentPlaceholder")}
           maxLength={2000}
         />
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex items-center gap-3">
+          <Switch
+            id="enable_copyleaks"
+            name="enable_copyleaks"
+            defaultChecked
+            value="true"
+          />
+          <Label htmlFor="enable_copyleaks">
+            {t("copyleaks.toggleLabel")}
+          </Label>
+        </div>
+        <p className="text-xs text-zinc-500">
+          {t("copyleaks.privacyWarning")}
+        </p>
       </div>
 
       {errorMessage ? (

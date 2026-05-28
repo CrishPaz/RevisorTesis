@@ -1,5 +1,6 @@
 import { enAuthForms } from "./messages/auth-forms";
 import { esAuthForms } from "./messages/auth-forms";
+import { enCopyleaks, esCopyleaks } from "./messages/copyleaks";
 import { enDashboard, esDashboard } from "./messages/dashboard";
 import { en as enBase } from "./messages/en";
 import { es as esBase } from "./messages/es";
@@ -19,6 +20,7 @@ const es = {
   ...esSubmissions,
   ...esAuthForms,
   ...esPanels,
+  ...esCopyleaks,
 } as const;
 
 const en: Record<keyof typeof es, string> = {
@@ -27,6 +29,7 @@ const en: Record<keyof typeof es, string> = {
   ...enSubmissions,
   ...enAuthForms,
   ...enPanels,
+  ...enCopyleaks,
 };
 
 export type MessageKey = keyof typeof es;

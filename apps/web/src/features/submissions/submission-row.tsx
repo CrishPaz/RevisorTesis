@@ -6,16 +6,52 @@ import {
   VersionStatusBadge,
 } from "@/features/submissions/status-badge";
 import { getMessages } from "@/lib/i18n/server";
-import type { SubmissionSummary } from "@/lib/api/types";
+import type { SubmissionSummary, VersionParsingStatus } from "@/lib/api/types";
+
+function SimilarityBadge({
+  status,
+  parsingError,
+  t,
+}: {
+  status: VersionParsingStatus | null;
+  parsingError?: string | null;
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  if (!status) return <span className="text-xs text-zinc-400">—</span>;
+
+  if (status === "ai_queued" || status === "ai_processing") {
+    return (
+      <Badge variant="outline" className="text-xs">
+        {t("submission.similarity.processing")}
+      </Badge>
+    );
+  }
+
+  if (status === "failed") {
+    return (
+      <Badge
+        variant="destructive"
+        className="text-xs"
+        title={parsingError ?? undefined}
+      >
+        {t("submission.similarity.error")}
+      </Badge>
+    );
+  }
+
+  return <span className="text-xs text-zinc-400">—</span>;
+}
 
 export async function SubmissionRow({
   submission,
   basePath,
   showStudent = false,
+  latestVersionParsingError,
 }: {
   submission: SubmissionSummary;
   basePath: string;
   showStudent?: boolean;
+  latestVersionParsingError?: string | null;
 }) {
   const { t, locale } = await getMessages();
   const dateLocale = locale === "es" ? "es-PE" : "en-US";
@@ -53,6 +89,11 @@ export async function SubmissionRow({
                 })}
               </Badge>
             ) : null}
+            <SimilarityBadge
+              status={submission.latest_version_status}
+              parsingError={latestVersionParsingError}
+              t={t as (key: string, values?: Record<string, string | number>) => string}
+            />
           </div>
           <Link
             href={`${basePath}/${submission.id}`}

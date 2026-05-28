@@ -117,6 +117,7 @@ export type SubmissionVersionSummary = {
   page_count: number;
   parsing_status: VersionParsingStatus;
   parsing_error: string | null;
+  enable_copyleaks: boolean;
   created_at: string;
 };
 
@@ -225,6 +226,30 @@ export type AIEvaluation = {
 
 export type PlagiarismSource = "intra" | "copyleaks";
 export type PlagiarismStatus = "pending" | "confirmed" | "dismissed";
+
+export type SpanItem = {
+  start: number;
+  end: number;
+  match_id: string;
+  source: PlagiarismSource;
+  similarity: number;
+  page_number: number | null;
+  source_url: string | null;
+};
+
+export type AnnotatedTextResponse = {
+  version_id: string;
+  text: string;
+  spans: SpanItem[];
+};
+
+export type ReportType = "acta" | "plagiarism" | "both";
+
+export type EmailReportPayload = {
+  to: string;
+  message?: string | null;
+  report_type?: ReportType;
+};
 
 export type ChunkPreview = {
   id: string;
