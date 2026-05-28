@@ -159,7 +159,7 @@ FORMATO:
 """
 
 
-_GEMINI_MODEL = "gemini-2.0-flash"
+_GEMINI_MODEL = "gemini-3.1-flash"
 
 
 def _call_gemini(section_text: str, api_key: str) -> list[ParsedReference]:

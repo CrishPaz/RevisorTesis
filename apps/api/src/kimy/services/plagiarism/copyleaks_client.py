@@ -16,7 +16,11 @@ from kimy.core.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-_BASE_URL = "https://api.copyleaks.com"
+# Copyleaks expone dos hosts distintos en su API v3:
+# - id.copyleaks.com  → identity (login con API key)
+# - api.copyleaks.com → scans y descarga de resultados
+_IDENTITY_BASE = "https://id.copyleaks.com"
+_API_BASE = "https://api.copyleaks.com"
 
 
 class CopyleaksAuthError(Exception):
@@ -78,7 +82,7 @@ class CopyleaksClient:
                 "Copyleaks auth error: COPYLEAKS_EMAIL o COPYLEAKS_API_KEY no configurados"
             )
 
-        url = f"{_BASE_URL}/v3/account/login/api-key"
+        url = f"{_IDENTITY_BASE}/v3/account/login/api-key"
         payload = {"email": self._email, "key": self._api_key}
 
         async with httpx.AsyncClient(timeout=30) as http:
@@ -110,7 +114,7 @@ class CopyleaksClient:
             scan_id: Identificador único para este escaneo (UUID string).
             token: Bearer token obtenido de login().
         """
-        url = f"{_BASE_URL}/v3/scans/submit/file/{scan_id}"
+        url = f"{_API_BASE}/v3/scans/submit/file/{scan_id}"
         headers = {"Authorization": f"Bearer {token}"}
 
         # Copyleaks espera multipart con el archivo bajo la clave "file".
@@ -135,7 +139,7 @@ class CopyleaksClient:
 
         Retorna None si el escaneo aún no terminó (estado 'processing').
         """
-        url = f"{_BASE_URL}/v3/downloads/{scan_id}"
+        url = f"{_API_BASE}/v3/downloads/{scan_id}"
         headers = {"Authorization": f"Bearer {token}"}
 
         async with httpx.AsyncClient(timeout=30) as http:

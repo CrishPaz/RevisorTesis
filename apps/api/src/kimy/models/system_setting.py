@@ -38,7 +38,7 @@ class SystemSetting(Base):
 KEY_AI_MODEL_PREFERENCE = "ai.model_preference"
 DEFAULT_AI_MODEL_PREFERENCE: dict[str, Any] = {
     "provider": "gemini",                # "gemini" (primary) | "anthropic" (legacy)
-    "model": "gemini-2.0-flash",         # active model for the chosen provider
+    "model": "gemini-3.1-flash",         # active model for the chosen provider
     "fine_tuned_model": None,            # reserved — Gemini tuning not wired
     "use_fine_tuned": False,             # A/B switch (kept for forward compat)
 }

@@ -59,7 +59,7 @@ def client_sin_credenciales(monkeypatch) -> CopyleaksClient:
 
 @respx.mock
 async def test_login_exitoso_retorna_token(client_con_credenciales):
-    respx.post("https://api.copyleaks.com/v3/account/login/api-key").mock(
+    respx.post("https://id.copyleaks.com/v3/account/login/api-key").mock(
         return_value=Response(200, json={"access_token": "tok-abc123"})
     )
 
@@ -70,7 +70,7 @@ async def test_login_exitoso_retorna_token(client_con_credenciales):
 
 @respx.mock
 async def test_login_401_lanza_auth_error(client_con_credenciales):
-    respx.post("https://api.copyleaks.com/v3/account/login/api-key").mock(
+    respx.post("https://id.copyleaks.com/v3/account/login/api-key").mock(
         return_value=Response(401, json={"message": "Invalid credentials"})
     )
 
