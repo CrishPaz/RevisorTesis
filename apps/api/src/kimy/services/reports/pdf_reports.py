@@ -493,10 +493,9 @@ def render_plagiarism_report(
         rows: list[list[Any]] = [["Fuente (URL)", "Similitud (%)", "Fragmento coincidente"]]
 
         for m in sorted(copyleaks_matches, key=lambda x: x.similarity, reverse=True):
-            source_url = "—"
-            # source_url no está en el modelo actual; se muestra como "—"
-            fragment = ""
-            if m.source_chunk is not None:
+            source_url = m.source_url or "—"
+            fragment = (m.matched_text or "")[:200]
+            if not fragment and m.source_chunk is not None:
                 fragment = (m.source_chunk.text or "")[:200]
 
             rows.append([

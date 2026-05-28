@@ -162,15 +162,38 @@ async def list_submissions(
         for version_id, grade, pct, fc in (await session.execute(eval_stmt)).all():
             eval_by_version[version_id] = (grade, pct, fc)
 
+    # Batch-load max Copyleaks similarity for the latest version of each submission.
+    copyleaks_by_version: dict[UUID, float] = {}
+    if latest_version_ids:
+        from kimy.models.plagiarism_match import PlagiarismMatch, PlagiarismSource
+
+        sim_stmt = (
+            _select(
+                PlagiarismMatch.version_id,
+                func.max(PlagiarismMatch.similarity),
+            )
+            .where(
+                PlagiarismMatch.version_id.in_(latest_version_ids),
+                PlagiarismMatch.source == PlagiarismSource.copyleaks,
+            )
+            .group_by(PlagiarismMatch.version_id)
+        )
+        for version_id, max_sim in (await session.execute(sim_stmt)).all():
+            copyleaks_by_version[version_id] = max_sim
+
     summaries: list[SubmissionSummary] = []
     for s in items:
         summary = _to_summary(s)
         latest_v = submissions_service.latest_version(s)
-        if latest_v is not None and latest_v.id in eval_by_version:
-            grade, pct, fc = eval_by_version[latest_v.id]
-            summary.latest_grade = grade
-            summary.latest_percentage = pct
-            summary.findings_count = fc
+        if latest_v is not None:
+            summary.latest_version_id = latest_v.id
+            if latest_v.id in eval_by_version:
+                grade, pct, fc = eval_by_version[latest_v.id]
+                summary.latest_grade = grade
+                summary.latest_percentage = pct
+                summary.findings_count = fc
+            if latest_v.id in copyleaks_by_version:
+                summary.max_copyleaks_similarity = copyleaks_by_version[latest_v.id]
         summaries.append(summary)
     return summaries
 

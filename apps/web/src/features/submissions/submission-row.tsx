@@ -9,10 +9,16 @@ import { getMessages } from "@/lib/i18n/server";
 import type { SubmissionSummary, VersionParsingStatus } from "@/lib/api/types";
 
 function SimilarityBadge({
+  submissionId,
+  latestVersionId,
+  maxCopyleaksSimilarity,
   status,
   parsingError,
   t,
 }: {
+  submissionId: string;
+  latestVersionId?: string | null;
+  maxCopyleaksSimilarity?: number | null;
   status: VersionParsingStatus | null;
   parsingError?: string | null;
   t: (key: string, values?: Record<string, string | number>) => string;
@@ -36,6 +42,18 @@ function SimilarityBadge({
       >
         {t("submission.similarity.error")}
       </Badge>
+    );
+  }
+
+  if (maxCopyleaksSimilarity != null && latestVersionId) {
+    const pct = (maxCopyleaksSimilarity * 100).toFixed(1);
+    const href = `/student/submissions/${submissionId}/versions/${latestVersionId}/viewer`;
+    return (
+      <Link href={href}>
+        <Badge variant="outline" className="text-xs hover:underline">
+          {pct}%
+        </Badge>
+      </Link>
     );
   }
 
@@ -90,6 +108,9 @@ export async function SubmissionRow({
               </Badge>
             ) : null}
             <SimilarityBadge
+              submissionId={submission.id}
+              latestVersionId={submission.latest_version_id}
+              maxCopyleaksSimilarity={submission.max_copyleaks_similarity}
               status={submission.latest_version_status}
               parsingError={latestVersionParsingError}
               t={t as (key: string, values?: Record<string, string | number>) => string}

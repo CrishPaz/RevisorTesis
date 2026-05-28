@@ -290,8 +290,13 @@ export async function uploadVersionAction(
     };
   }
   try {
-    // If enable_copyleaks is not present in formData (legacy callers), it stays
-    // absent and the backend defaults to True.
+    // Normalise enable_copyleaks: HTML checkbox only sends the field when checked.
+    // Absent field or any value other than "on"/"true" means the user disabled it.
+    const rawCopyleaks = formData.get("enable_copyleaks");
+    const enableCopyleaks =
+      rawCopyleaks === "on" || rawCopyleaks === "true" ? "true" : "false";
+    formData.set("enable_copyleaks", enableCopyleaks);
+
     const version = await apiFetch<SubmissionVersionDetail>(
       `/api/v1/submissions/${submissionId}/versions`,
       { method: "POST", formData },

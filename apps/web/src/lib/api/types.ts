@@ -144,6 +144,9 @@ export type SubmissionSummary = {
   latest_grade: number | null;
   latest_percentage: number | null;
   findings_count: number | null;
+  // Copyleaks rollup — populated by list endpoint. Null when no scan exists yet.
+  latest_version_id?: string | null;
+  max_copyleaks_similarity?: number | null;
 };
 
 export type SubmissionDetail = SubmissionSummary & {

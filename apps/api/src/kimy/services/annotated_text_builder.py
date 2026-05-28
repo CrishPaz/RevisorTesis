@@ -10,13 +10,14 @@ Estrategia de offsets (AD-3):
 
 Para cada match Copyleaks:
   1. Obtener chunk correspondiente via source_chunk_id.
-  2. Buscar matched_text en chunk.text con str.find().
-  3. Si encontrado: span = (chunk_offset + pos, chunk_offset + pos + len(matched_text)).
-  4. Si no encontrado: fallback = span del chunk completo.
+  2. Si el match tiene matched_text: buscar en chunk.text con str.find()
+     (normalizando whitespace). Si encuentra: span preciso.
+  3. Si no encuentra o matched_text es None: fallback = span del chunk completo.
 """
 from __future__ import annotations
 
 import logging
+import re
 from uuid import UUID
 
 from kimy.models.document_chunk import DocumentChunk
@@ -75,11 +76,25 @@ def build(
 
         chunk_start = chunk_offsets.get(chunk.id, 0)
 
-        # Intentar localizar matched_text dentro del chunk via str.find.
-        # El modelo PlagiarismMatch no almacena matched_text como columna propia,
-        # por lo que usamos el texto completo del chunk como span.
+        # Intentar localizar matched_text dentro del chunk via str.find
+        # con normalización de whitespace (AD-3).
         span_start = chunk_start
         span_end = chunk_start + len(chunk.text)
+
+        if match.matched_text:
+            normalized_query = re.sub(r"\s+", " ", match.matched_text).strip()
+            normalized_chunk = re.sub(r"\s+", " ", chunk.text)
+            idx = normalized_chunk.find(normalized_query)
+            if idx != -1:
+                span_start = chunk_start + idx
+                span_end = chunk_start + idx + len(normalized_query)
+            else:
+                logger.debug(
+                    "annotated_text_builder: matched_text no encontrado en chunk %s "
+                    "(whitespace reflow?); usando span de chunk completo. match=%s",
+                    chunk.id,
+                    match.id,
+                )
 
         spans.append(
             SpanItem(
@@ -89,7 +104,7 @@ def build(
                 source=match.source.value,
                 similarity=match.similarity,
                 page_number=chunk.page_number,
-                source_url=None,  # source_url no se persiste en el modelo actual
+                source_url=match.source_url,
             )
         )
 

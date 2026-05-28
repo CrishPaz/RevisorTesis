@@ -70,11 +70,9 @@ def map_copyleaks_hits(
             similarity=hit.similarity,
             source=PlagiarismSource.copyleaks,
             status=PlagiarismStatus.pending,
+            source_url=hit.source_url or None,
+            matched_text=hit.matched_text or None,
         )
-        # Campos extra que el modelo permite como NULL se almacenan en la misma fila.
-        # source_url y matched_text no son columnas del modelo actual (se persisten en
-        # el futuro como extensión); por ahora se dejan sin persistir en DB.
-        # El visor usará source_chunk.text para reconstruir el contexto.
         matches.append(match)
 
     return matches

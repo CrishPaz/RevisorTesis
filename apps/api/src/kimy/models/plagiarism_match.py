@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import DateTime, Enum, Float, ForeignKey
+from sqlalchemy import DateTime, Enum, Float, ForeignKey, Text
 from sqlalchemy.dialects.postgresql import UUID as PgUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -68,6 +68,9 @@ class PlagiarismMatch(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         default=PlagiarismStatus.pending,
         index=True,
     )
+
+    source_url: Mapped[str | None] = mapped_column(Text, nullable=True)
+    matched_text: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     reviewed_by: Mapped[UUID | None] = mapped_column(
         PgUUID(as_uuid=True),

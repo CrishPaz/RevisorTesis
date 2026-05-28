@@ -67,6 +67,9 @@ class SubmissionSummary(BaseModel):
     latest_grade: float | None = None
     latest_percentage: float | None = None
     findings_count: int | None = None
+    # Copyleaks rollup — populated by list_submissions. None when no scan exists yet.
+    latest_version_id: UUID | None = None
+    max_copyleaks_similarity: float | None = None
 
 
 class SubmissionDetail(SubmissionSummary):
