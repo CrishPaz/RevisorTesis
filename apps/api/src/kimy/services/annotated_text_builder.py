@@ -22,7 +22,7 @@ from uuid import UUID
 
 from kimy.models.document_chunk import DocumentChunk
 from kimy.models.plagiarism_match import PlagiarismMatch, PlagiarismSource
-from kimy.schemas.annotated_text import AnnotatedTextResponse, SpanItem
+from kimy.schemas.annotated_text import AnnotatedTextResponse, PageMatch, SpanItem
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,7 @@ def build(
     version_id: UUID,
     chunks: list[DocumentChunk],
     matches: list[PlagiarismMatch],
+    filename: str = "",
 ) -> AnnotatedTextResponse:
     """Construye la respuesta de texto anotado.
 
@@ -41,10 +42,12 @@ def build(
         version_id: UUID de la versión.
         chunks: DocumentChunk ordenados por chunk_index.
         matches: PlagiarismMatch de cualquier source (se filtran a copyleaks).
+        filename: nombre del archivo original (para decidir si es PDF).
 
     Returns:
-        AnnotatedTextResponse con text y spans calculados.
+        AnnotatedTextResponse con text, spans y matches por pagina.
     """
+    is_pdf = filename.lower().endswith(".pdf")
     sorted_chunks = sorted(chunks, key=lambda c: c.chunk_index)
 
     # Ensamblar texto completo.
@@ -64,6 +67,7 @@ def build(
     copyleaks_matches = [m for m in matches if m.source == PlagiarismSource.copyleaks]
 
     spans: list[SpanItem] = []
+    page_matches: list[PageMatch] = []
     for match in copyleaks_matches:
         chunk = chunk_by_id.get(match.source_chunk_id)
         if chunk is None:
@@ -73,6 +77,17 @@ def build(
                 match.id,
             )
             continue
+
+        # Texto crudo para el visor PDF: matched_text si existe, si no el chunk.
+        page_matches.append(
+            PageMatch(
+                match_id=match.id,
+                matched_text=(match.matched_text or chunk.text),
+                similarity=match.similarity,
+                page_number=chunk.page_number,
+                source_url=match.source_url,
+            )
+        )
 
         chunk_start = chunk_offsets.get(chunk.id, 0)
 
@@ -110,6 +125,9 @@ def build(
 
     return AnnotatedTextResponse(
         version_id=version_id,
+        filename=filename,
+        is_pdf=is_pdf,
         text=text,
         spans=spans,
+        matches=page_matches,
     )

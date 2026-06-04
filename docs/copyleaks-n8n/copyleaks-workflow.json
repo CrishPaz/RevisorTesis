@@ -1,0 +1,353 @@
+{
+  "name": "Copyleaks Plagiarism (RevisorTesis)",
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "nodes": [
+    {
+      "id": "wh_submit",
+      "name": "Webhook: Submit",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 0],
+      "webhookId": "copyleaks-submit",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "copyleaks/submit",
+        "responseMode": "onReceived",
+        "responseData": "allEntries",
+        "options": {}
+      }
+    },
+    {
+      "id": "login_submit",
+      "name": "Login (submit)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [40, 0],
+      "parameters": {
+        "method": "POST",
+        "url": "https://id.copyleaks.com/v3/account/login/api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"email\": $env.COPYLEAKS_EMAIL, \"key\": $env.COPYLEAKS_API_KEY } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "submit_file",
+      "name": "Submit File",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [280, 0],
+      "parameters": {
+        "method": "PUT",
+        "url": "=https://api.copyleaks.com/v3/scans/submit/file/{{ $('Webhook: Submit').item.json.body.version_id }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.access_token }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"base64\": $('Webhook: Submit').item.json.body.base64, \"filename\": ($('Webhook: Submit').item.json.body.filename || ($('Webhook: Submit').item.json.body.version_id + '.pdf')), \"properties\": { \"webhooks\": { \"status\": ($env.N8N_PUBLIC_BASE + '/webhook/copyleaks/status?v=' + $('Webhook: Submit').item.json.body.version_id + '&s={STATUS}') }, \"sandbox\": true, \"pdf\": { \"create\": false } } } }}",
+        "options": {}
+      }
+    },
+
+    {
+      "id": "wh_status",
+      "name": "Webhook: Status",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 240],
+      "webhookId": "copyleaks-status",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "copyleaks/status",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "if_completed",
+      "name": "IF completed",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [40, 240],
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "typeValidation": "loose" },
+          "combinator": "and",
+          "conditions": [
+            {
+              "leftValue": "={{ $json.query.s }}",
+              "rightValue": "completed",
+              "operator": { "type": "string", "operation": "equals" }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "prep_completed",
+      "name": "Prep completed row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 160],
+      "parameters": {
+        "jsCode": "const wh = $json;\nconst body = wh.body || {};\nconst v = (wh.query && wh.query.v) || (body.scannedDocument && body.scannedDocument.scanId);\nreturn [{ json: {\n  version_id: v,\n  scan_id: (body.scannedDocument && body.scannedDocument.scanId) || v,\n  event_type: 'completed',\n  result_id: null,\n  payload: JSON.stringify(body),\n} }];"
+      }
+    },
+    {
+      "id": "insert_completed",
+      "name": "Insert completed",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [520, 160],
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "mode": "list", "value": "public" },
+        "table": { "__rl": true, "mode": "list", "value": "copyleaks_events" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "version_id": "={{ $json.version_id }}",
+            "scan_id": "={{ $json.scan_id }}",
+            "event_type": "={{ $json.event_type }}",
+            "result_id": "={{ $json.result_id }}",
+            "payload": "={{ $json.payload }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_PG_CREDENTIAL_ID", "name": "RevisorTesis DB (deployed)" }
+      }
+    },
+    {
+      "id": "login_export",
+      "name": "Login (export)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [760, 160],
+      "parameters": {
+        "method": "POST",
+        "url": "https://id.copyleaks.com/v3/account/login/api",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { \"email\": $env.COPYLEAKS_EMAIL, \"key\": $env.COPYLEAKS_API_KEY } }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "build_export",
+      "name": "Build export body",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1000, 160],
+      "parameters": {
+        "jsCode": "const base = $env.N8N_PUBLIC_BASE;\nconst v = $('Webhook: Status').item.json.query.v;\nconst body = $('Webhook: Status').item.json.body || {};\nconst r = body.results || {};\nconst ids = [];\nfor (const k of ['internet','database','batch','repositories']) {\n  for (const it of (r[k] || [])) { if (it && it.id) ids.push(it.id); }\n}\nconst results = ids.map(id => ({ id, endpoint: `${base}/webhook/copyleaks/result?v=${v}&rid=${id}`, verb: 'POST' }));\nreturn [{ json: {\n  version_id: v,\n  token: $json.access_token,\n  exportBody: {\n    completionWebhook: `${base}/webhook/copyleaks/export-completed?v=${v}`,\n    crawledVersion: { endpoint: `${base}/webhook/copyleaks/crawled?v=${v}`, verb: 'POST' },\n    results,\n  },\n} }];"
+      }
+    },
+    {
+      "id": "trigger_export",
+      "name": "Trigger Export",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1240, 160],
+      "parameters": {
+        "method": "POST",
+        "url": "=https://api.copyleaks.com/v3/downloads/{{ $json.version_id }}/export/export-1",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            { "name": "Authorization", "value": "=Bearer {{ $json.token }}" }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.exportBody }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "prep_error",
+      "name": "Prep error row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [280, 360],
+      "parameters": {
+        "jsCode": "const wh = $json;\nconst body = wh.body || {};\nconst v = (wh.query && wh.query.v) || (body.scannedDocument && body.scannedDocument.scanId);\nreturn [{ json: {\n  version_id: v,\n  scan_id: (body.scannedDocument && body.scannedDocument.scanId) || v,\n  event_type: 'error',\n  result_id: null,\n  payload: JSON.stringify(body),\n} }];"
+      }
+    },
+    {
+      "id": "insert_error",
+      "name": "Insert error",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [520, 360],
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "mode": "list", "value": "public" },
+        "table": { "__rl": true, "mode": "list", "value": "copyleaks_events" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "version_id": "={{ $json.version_id }}",
+            "scan_id": "={{ $json.scan_id }}",
+            "event_type": "={{ $json.event_type }}",
+            "result_id": "={{ $json.result_id }}",
+            "payload": "={{ $json.payload }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_PG_CREDENTIAL_ID", "name": "RevisorTesis DB (deployed)" }
+      }
+    },
+
+    {
+      "id": "wh_crawled",
+      "name": "Webhook: Crawled",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 560],
+      "webhookId": "copyleaks-crawled",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "copyleaks/crawled",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "prep_crawled",
+      "name": "Prep crawled row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [40, 560],
+      "parameters": {
+        "jsCode": "const wh = $json;\nconst body = wh.body || {};\nconst v = wh.query && wh.query.v;\nreturn [{ json: {\n  version_id: v,\n  scan_id: v,\n  event_type: 'crawled',\n  result_id: null,\n  payload: JSON.stringify(body),\n} }];"
+      }
+    },
+    {
+      "id": "insert_crawled",
+      "name": "Insert crawled",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [280, 560],
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "mode": "list", "value": "public" },
+        "table": { "__rl": true, "mode": "list", "value": "copyleaks_events" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "version_id": "={{ $json.version_id }}",
+            "scan_id": "={{ $json.scan_id }}",
+            "event_type": "={{ $json.event_type }}",
+            "result_id": "={{ $json.result_id }}",
+            "payload": "={{ $json.payload }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_PG_CREDENTIAL_ID", "name": "RevisorTesis DB (deployed)" }
+      }
+    },
+
+    {
+      "id": "wh_result",
+      "name": "Webhook: Result",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 780],
+      "webhookId": "copyleaks-result",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "copyleaks/result",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "prep_result",
+      "name": "Prep result row",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [40, 780],
+      "parameters": {
+        "jsCode": "const wh = $json;\nconst body = wh.body || {};\nconst v = wh.query && wh.query.v;\nconst rid = wh.query && wh.query.rid;\nreturn [{ json: {\n  version_id: v,\n  scan_id: v,\n  event_type: 'result',\n  result_id: rid || null,\n  payload: JSON.stringify(body),\n} }];"
+      }
+    },
+    {
+      "id": "insert_result",
+      "name": "Insert result",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [280, 780],
+      "parameters": {
+        "operation": "insert",
+        "schema": { "__rl": true, "mode": "list", "value": "public" },
+        "table": { "__rl": true, "mode": "list", "value": "copyleaks_events" },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "version_id": "={{ $json.version_id }}",
+            "scan_id": "={{ $json.scan_id }}",
+            "event_type": "={{ $json.event_type }}",
+            "result_id": "={{ $json.result_id }}",
+            "payload": "={{ $json.payload }}"
+          }
+        },
+        "options": {}
+      },
+      "credentials": {
+        "postgres": { "id": "REPLACE_WITH_PG_CREDENTIAL_ID", "name": "RevisorTesis DB (deployed)" }
+      }
+    },
+
+    {
+      "id": "wh_export_completed",
+      "name": "Webhook: Export Completed",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [-200, 1000],
+      "webhookId": "copyleaks-export-completed",
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "copyleaks/export-completed",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "Webhook: Submit": { "main": [[{ "node": "Login (submit)", "type": "main", "index": 0 }]] },
+    "Login (submit)": { "main": [[{ "node": "Submit File", "type": "main", "index": 0 }]] },
+
+    "Webhook: Status": { "main": [[{ "node": "IF completed", "type": "main", "index": 0 }]] },
+    "IF completed": {
+      "main": [
+        [{ "node": "Prep completed row", "type": "main", "index": 0 }],
+        [{ "node": "Prep error row", "type": "main", "index": 0 }]
+      ]
+    },
+    "Prep completed row": { "main": [[{ "node": "Insert completed", "type": "main", "index": 0 }]] },
+    "Insert completed": { "main": [[{ "node": "Login (export)", "type": "main", "index": 0 }]] },
+    "Login (export)": { "main": [[{ "node": "Build export body", "type": "main", "index": 0 }]] },
+    "Build export body": { "main": [[{ "node": "Trigger Export", "type": "main", "index": 0 }]] },
+    "Prep error row": { "main": [[{ "node": "Insert error", "type": "main", "index": 0 }]] },
+
+    "Webhook: Crawled": { "main": [[{ "node": "Prep crawled row", "type": "main", "index": 0 }]] },
+    "Prep crawled row": { "main": [[{ "node": "Insert crawled", "type": "main", "index": 0 }]] },
+
+    "Webhook: Result": { "main": [[{ "node": "Prep result row", "type": "main", "index": 0 }]] },
+    "Prep result row": { "main": [[{ "node": "Insert result", "type": "main", "index": 0 }]] }
+  }
+}

@@ -23,6 +23,9 @@ const csp = [
   isDev
     ? `script-src 'self' 'unsafe-inline' 'unsafe-eval'`
     : `script-src 'self' 'unsafe-inline'`,
+  // pdf.js (react-pdf) carga su worker como Web Worker, en algunos navegadores
+  // a traves de una blob: URL. Sin worker-src, la previsualizacion del PDF falla.
+  `worker-src 'self' blob:`,
   `connect-src 'self' ${API_URL} https://api.crossref.org https://orcid.org https://sandbox.orcid.org`,
   "upgrade-insecure-requests",
 ].join("; ");

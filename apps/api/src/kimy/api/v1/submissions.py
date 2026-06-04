@@ -501,7 +501,9 @@ async def get_annotated_text(
     )
     matches = list((await session.execute(matches_stmt)).scalars().all())
 
-    return annotated_text_builder.build(version_id, chunks, matches)
+    return annotated_text_builder.build(
+        version_id, chunks, matches, filename=version.original_filename
+    )
 
 
 @router.patch(

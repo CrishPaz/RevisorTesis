@@ -5,6 +5,7 @@ import {
 } from "@/lib/api/plagiarism";
 import { getMessages } from "@/lib/i18n/server";
 import { AnnotatedTextRenderer } from "./annotated-text-renderer";
+import { PdfHighlightViewer } from "./pdf-highlight-viewer";
 import { PlagiarismPanel } from "./matches-panel";
 
 export async function PlagiarismViewer({
@@ -39,7 +40,8 @@ export async function PlagiarismViewer({
 
   const allMatches = await fetchPlagiarismMatches(sid, vid);
   const copyleaksMatches = allMatches.filter((m) => m.source === "copyleaks");
-  const noMatches = annotated.spans.length === 0;
+  const noMatches = annotated.matches.length === 0;
+  const fileUrl = `/api/submissions/${sid}/versions/${vid}/file`;
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 grid-rows-2 lg:grid-cols-2 lg:grid-rows-1">
@@ -55,7 +57,14 @@ export async function PlagiarismViewer({
           ) : null}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
-          <AnnotatedTextRenderer text={annotated.text} spans={annotated.spans} />
+          {annotated.is_pdf ? (
+            <PdfHighlightViewer fileUrl={fileUrl} matches={annotated.matches} />
+          ) : (
+            <AnnotatedTextRenderer
+              text={annotated.text}
+              spans={annotated.spans}
+            />
+          )}
         </div>
       </section>
 

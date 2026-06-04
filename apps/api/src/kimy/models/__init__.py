@@ -14,6 +14,7 @@ from kimy.models.ai_finding import (
 )
 from kimy.models.audit_log import AuditLog
 from kimy.models.citation import Citation, CitationStatus
+from kimy.models.copyleaks_event import CopyleaksEvent, CopyleaksEventType
 from kimy.models.document_chunk import EMBEDDING_DIM, DocumentChunk
 from kimy.models.fine_tuning_job import FineTuningJob, FineTuningStatus
 from kimy.models.orcid_publication import OrcidPublication
@@ -44,6 +45,8 @@ __all__ = [
     "AuditLog",
     "Citation",
     "CitationStatus",
+    "CopyleaksEvent",
+    "CopyleaksEventType",
     "DEFAULT_AI_MODEL_PREFERENCE",
     "DEFAULT_FINE_TUNING_CONFIG",
     "DocumentChunk",

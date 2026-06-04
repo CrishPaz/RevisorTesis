@@ -89,9 +89,16 @@ class Settings(BaseSettings):
     # Activar solo si la cuenta esta autenticada en modo sandbox.
     copyleaks_sandbox: bool = False
     # Seconds between polling attempts while waiting for Copyleaks results.
+    # NOTA: con la integración vía n8n, el polling ya NO es contra Copyleaks
+    # (que es push por webhook), sino contra la tabla de staging copyleaks_events.
     copyleaks_polling_interval_sec: int = 15
     # Maximum seconds to wait for a Copyleaks scan before marking the version failed.
     copyleaks_timeout_sec: int = 300
+    # URL pública del webhook de n8n que dispara el scan (flujo "submit").
+    # El backend hace POST aquí con {version_id, base64, filename}; n8n se encarga
+    # de login + submit + recibir los webhooks de Copyleaks y volcar copyleaks_events.
+    # Ver docs/copyleaks-n8n/README.md.
+    copyleaks_n8n_submit_url: str = ""
 
 
 @lru_cache

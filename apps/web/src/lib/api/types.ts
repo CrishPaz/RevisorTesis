@@ -240,10 +240,21 @@ export type SpanItem = {
   source_url: string | null;
 };
 
+export type PageMatch = {
+  match_id: string;
+  matched_text: string;
+  similarity: number;
+  page_number: number | null;
+  source_url: string | null;
+};
+
 export type AnnotatedTextResponse = {
   version_id: string;
+  filename: string;
+  is_pdf: boolean;
   text: string;
   spans: SpanItem[];
+  matches: PageMatch[];
 };
 
 export type ReportType = "acta" | "plagiarism" | "both";
