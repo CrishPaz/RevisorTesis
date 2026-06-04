@@ -11,6 +11,10 @@ export const esCopyleaks = {
   "viewer.accessDenied.title": "Acceso denegado",
   "viewer.accessDenied": "No tiene acceso a esta submission",
   "viewer.annotatedText.title": "Texto del documento",
+  "viewer.legend.high": "Alta (≥85%)",
+  "viewer.legend.medium": "Media (50–84%)",
+  "viewer.legend.low": "Baja (<50%)",
+  "viewer.matches.title": "Coincidencias detectadas",
   "submission.similarity.processing": "Procesando…",
   "submission.similarity.error": "Error",
 } as const;
@@ -25,6 +29,10 @@ export const enCopyleaks: Record<keyof typeof esCopyleaks, string> = {
   "viewer.accessDenied.title": "Access denied",
   "viewer.accessDenied": "You do not have access to this submission",
   "viewer.annotatedText.title": "Document text",
+  "viewer.legend.high": "High (≥85%)",
+  "viewer.legend.medium": "Medium (50–84%)",
+  "viewer.legend.low": "Low (<50%)",
+  "viewer.matches.title": "Detected matches",
   "submission.similarity.processing": "Processing…",
   "submission.similarity.error": "Error",
 };

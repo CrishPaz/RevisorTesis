@@ -28,7 +28,6 @@ export function RegisterForm() {
   useEffect(() => {
     if (state?.ok) {
       router.replace(state.redirectTo);
-      router.refresh();
     }
   }, [state, router]);
 

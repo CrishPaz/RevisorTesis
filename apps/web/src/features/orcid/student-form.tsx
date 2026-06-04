@@ -2,9 +2,7 @@
 
 import { useState, useTransition } from "react";
 
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { OrcidLinkedBadge } from "@/features/orcid/orcid-ui";
 import { Label } from "@/components/ui/label";
 import {
   unlinkStudentOrcidAction,
@@ -60,35 +58,37 @@ export function StudentOrcidForm({ initial }: Props) {
 
   if (status.linked) {
     return (
-      <div className="space-y-4">
+      <div className="space-y-4 border-t border-[color:var(--orcid-pub-border)] pt-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="muted">Vinculado</Badge>
+          <OrcidLinkedBadge />
           {status.mode === "stub" ? (
-            <Badge variant="muted" title="Modo desarrollo sin credenciales reales">
+            <span className="orcid-year-badge" title="Modo desarrollo sin credenciales reales">
               modo demo
-            </Badge>
+            </span>
           ) : null}
         </div>
-        <Button
+        <button
           type="button"
-          variant="outline"
-          size="sm"
+          className="orcid-btn-outline"
           onClick={onUnlink}
           disabled={pending}
         >
           {pending ? "Desvinculando…" : "Desvincular ORCID"}
-        </Button>
+        </button>
       </div>
     );
   }
 
   return (
-    <form className="space-y-3" onSubmit={onValidate}>
+    <form className="space-y-4" onSubmit={onValidate}>
       <div className="space-y-1.5">
-        <Label htmlFor="orcid-id">ORCID iD</Label>
-        <Input
+        <Label htmlFor="orcid-id" className="text-[color:var(--orcid-text)]">
+          ORCID iD
+        </Label>
+        <input
           id="orcid-id"
           name="orcid_id"
+          className="orcid-input"
           placeholder="0000-0000-0000-000X"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -98,7 +98,7 @@ export function StudentOrcidForm({ initial }: Props) {
           disabled={pending}
           required
         />
-        <p className="text-xs text-zinc-500">
+        <p className="text-xs text-[color:var(--orcid-muted)]">
           Formato esperado: 4 grupos de 4 dígitos separados por guiones. El último
           carácter puede ser un dígito o la letra X.
         </p>
@@ -106,9 +106,13 @@ export function StudentOrcidForm({ initial }: Props) {
       {error ? (
         <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
       ) : null}
-      <Button type="submit" disabled={pending || !draft.trim()}>
+      <button
+        type="submit"
+        className="orcid-btn-primary"
+        disabled={pending || !draft.trim()}
+      >
         {pending ? "Validando…" : "Validar ORCID"}
-      </Button>
+      </button>
     </form>
   );
 }

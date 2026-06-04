@@ -6,6 +6,7 @@ Usa httpx.AsyncClient con timeouts explícitos para no bloquear el event loop.
 from __future__ import annotations
 
 import asyncio
+import base64
 import logging
 import time
 from dataclasses import dataclass, field
@@ -66,8 +67,12 @@ class CopyleaksClient:
 
     def __init__(self) -> None:
         settings = get_settings()
-        self._email = settings.copyleaks_email
-        self._api_key = settings.copyleaks_api_key.get_secret_value()
+        # strip() defensivo: en Windows el copy-paste del .env suele dejar
+        # trailing whitespace / CR / newline invisible que Copyleaks rechaza con 500.
+        self._email = settings.copyleaks_email.strip()
+        self._api_key = settings.copyleaks_api_key.get_secret_value().strip()
+        self._webhook_url = settings.copyleaks_webhook_url.strip()
+        self._sandbox = settings.copyleaks_sandbox
         self._polling_interval = settings.copyleaks_polling_interval_sec
         self._timeout_sec = settings.copyleaks_timeout_sec
 
@@ -96,8 +101,10 @@ class CopyleaksClient:
             raise CopyleaksAuthError(f"Copyleaks auth error: {detail}")
 
         if response.status_code != 200:
+            detail = _extract_error(response)
             raise CopyleaksAuthError(
-                f"Copyleaks auth error: respuesta inesperada {response.status_code}"
+                f"Copyleaks auth error: respuesta inesperada "
+                f"{response.status_code} — body: {detail}"
             )
 
         data = response.json()
@@ -113,21 +120,31 @@ class CopyleaksClient:
             pdf_bytes: Contenido binario del PDF.
             scan_id: Identificador único para este escaneo (UUID string).
             token: Bearer token obtenido de login().
+
+        El cuerpo se manda como JSON con el archivo en base64; Copyleaks
+        no acepta multipart en este endpoint. Las properties incluyen
+        webhooks.status (obligatorio) y sandbox segun configuracion.
         """
         url = f"{_API_BASE}/v3/scans/submit/file/{scan_id}"
-        headers = {"Authorization": f"Bearer {token}"}
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
 
-        # Copyleaks espera multipart con el archivo bajo la clave "file".
-        files = {"file": ("document.pdf", pdf_bytes, "application/pdf")}
-        properties = {"filename": "document.pdf"}
+        encoded = base64.b64encode(pdf_bytes).decode("ascii")
+        payload = {
+            "base64": encoded,
+            "filename": f"{scan_id}.pdf",
+            "properties": {
+                "webhooks": {
+                    "status": self._webhook_url,
+                },
+                "sandbox": self._sandbox,
+            },
+        }
 
         async with httpx.AsyncClient(timeout=60) as http:
-            response = await http.put(
-                url,
-                headers=headers,
-                files=files,
-                data={"properties": str(properties)},
-            )
+            response = await http.put(url, headers=headers, json=payload)
 
         if response.status_code not in (200, 201):
             raise CopyleaksAuthError(

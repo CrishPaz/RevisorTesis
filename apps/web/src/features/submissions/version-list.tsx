@@ -77,7 +77,9 @@ export async function VersionList({
               >
                 {t("submission.versionList.download")}
               </a>
-              {viewerBase && v.parsing_status === "ai_completed" ? (
+              {viewerBase &&
+              (v.parsing_status === "ai_completed" ||
+                v.parsing_status === "failed") ? (
                 <Link
                   href={`${viewerBase}/${v.id}/viewer`}
                   className="text-sm font-medium text-sky-700 underline-offset-4 hover:underline dark:text-sky-300"

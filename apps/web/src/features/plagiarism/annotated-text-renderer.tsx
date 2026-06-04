@@ -47,6 +47,17 @@ function buildSegments(text: string, spans: SpanItem[]): Segment[] {
   return segments;
 }
 
+/**
+ * Normaliza el texto del PDF sin desplazar los offsets de los spans.
+ * \n → espacio (1 char → 1 char): los índices de SpanItem permanecen válidos.
+ * Secuencias de 3+ newlines se convierten en doble espacio para separar secciones.
+ */
+function normalizeDocText(raw: string): string {
+  return raw
+    .replace(/\n{3,}/g, (match) => " ".repeat(match.length))
+    .replace(/\n/g, " ");
+}
+
 export function AnnotatedTextRenderer({
   text,
   spans,
@@ -54,10 +65,11 @@ export function AnnotatedTextRenderer({
   text: string;
   spans: SpanItem[];
 }) {
-  const segments = buildSegments(text, spans);
+  const normalized = normalizeDocText(text);
+  const segments = buildSegments(normalized, spans);
 
   return (
-    <p className="whitespace-pre-wrap text-sm leading-relaxed text-zinc-800 dark:text-[color:var(--aurora-cream-dim)]">
+    <p className="wrap-break-word text-sm leading-relaxed text-zinc-800 dark:text-(--aurora-cream-dim)">
       {segments.map((seg, i) => {
         if (seg.kind === "plain") {
           return <span key={i}>{seg.text}</span>;

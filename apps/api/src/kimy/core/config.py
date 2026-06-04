@@ -81,6 +81,13 @@ class Settings(BaseSettings):
     # enable_copyleaks=True will fail with a descriptive auth error.
     copyleaks_email: str = ""
     copyleaks_api_key: SecretStr = SecretStr("")
+    # URL publica donde Copyleaks notificara los estados del scan.
+    # El servicio exige una webhook URL aunque despues hagamos polling.
+    # Para desarrollo local sin tunel, usar un placeholder de webhook.site.
+    copyleaks_webhook_url: str = "https://webhook.site/00000000-0000-0000-0000-000000000000"
+    # Modo sandbox: scans gratis (max 100/hora) que no consumen creditos.
+    # Activar solo si la cuenta esta autenticada en modo sandbox.
+    copyleaks_sandbox: bool = False
     # Seconds between polling attempts while waiting for Copyleaks results.
     copyleaks_polling_interval_sec: int = 15
     # Maximum seconds to wait for a Copyleaks scan before marking the version failed.

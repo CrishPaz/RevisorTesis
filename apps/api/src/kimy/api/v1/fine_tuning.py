@@ -89,7 +89,7 @@ async def create_job(session: SessionDep, user: CurrentUser) -> FineTuningJobOut
         )
     relpath = await ft_exporter.persist_dataset(text)
     pref = await settings_service.get(session, KEY_AI_MODEL_PREFERENCE)
-    base_model = str(pref.get("model") or "gemini-3.1-flash")
+    base_model = str(pref.get("model") or "gemini-2.5-flash")
 
     job = FineTuningJob(
         status=FineTuningStatus.dataset_ready,

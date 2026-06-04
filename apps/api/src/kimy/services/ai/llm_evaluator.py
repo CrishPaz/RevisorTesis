@@ -27,7 +27,7 @@ class LLMResponseError(Exception):
 
 
 # Defaults; both support JSON / structured output.
-_GEMINI_MODEL = "gemini-3.1-flash"
+_GEMINI_MODEL = "gemini-2.5-flash"
 _ANTHROPIC_MODEL = "claude-3-5-sonnet-latest"
 
 

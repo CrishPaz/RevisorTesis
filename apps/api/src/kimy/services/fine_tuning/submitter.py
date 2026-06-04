@@ -53,7 +53,7 @@ def is_available() -> bool:
     return False
 
 
-def submit_jsonl(absolute_path: Path, *, base_model: str = "gemini-3.1-flash") -> SubmitResult:
+def submit_jsonl(absolute_path: Path, *, base_model: str = "gemini-2.5-flash") -> SubmitResult:
     settings = get_settings()
     _ = settings  # kept for future provider routing
     raise FineTuningNotSupportedError(
